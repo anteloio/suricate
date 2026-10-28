@@ -47,9 +47,9 @@ export const MENU_ITEMS = [
     ingredients: [
       { name: 'Sauce Suricate', checked: true },
       { name: 'Haché de Boeuf', checked: true },
-      { name: 'Saint Nectaire', checked: true },
-      { name: 'Jambon cru', checked: true },
-      { name: 'Oignons frits', checked: true },
+      { name: 'PDT Vapeur', checked: true },
+      { name: 'Raclette', checked: true },
+      { name: 'Coppa', checked: true },
       { name: 'Salade', checked: true },
     ],
   },
