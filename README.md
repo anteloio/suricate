@@ -1,11 +1,16 @@
 # Suricate
 
-Point of sale application with thermal printer support.
+Apps for the Suricate food truck, in one npm workspaces repo:
+
+- `apps/foodtruck/` — point of sale application with thermal printer support.
+- `src/config.js` — the food truck menu (items, formules, prices). It stays at this path so Bruno
+  can keep editing it as before.
 
 ## Development
 
 ```bash
-npm run dev     # Start the development server
+npm install     # From the repo root: installs every app
+npm run dev     # Start the food truck dev server
 ```
 
 See [Deployment](#deployment) below for how the app is published.
@@ -29,18 +34,18 @@ The script runs the full cycle, in order:
 
 1. `git pull` — pull the latest changes
 2. `npm install` — install/update dependencies
-3. `npm run deploy` — build the app and push `dist/` to the `gh-pages` branch (`gh-pages -d dist`)
-4. `git add . && git commit -m "update" && git push` — commit the rebuilt `dist/` and push to `main`
+3. `npm run deploy` — build the food truck app and push `apps/foodtruck/dist/` to the `gh-pages` branch
+4. `git add . && git commit -m "update" && git push` — commit the rebuilt `apps/foodtruck/dist/` and push to `main`
 
 If any step fails, the script prints `UNE ERREUR EST SURVENUE` and pauses so the error stays visible.
 
-> **Note:** `dist/` is committed to the repo on purpose (it is *not* gitignored), because
+> **Note:** `apps/foodtruck/dist/` is committed to the repo on purpose (it is *not* gitignored), because
 > `GENERER.sh` rebuilds and commits it on every deploy.
 
 ### Automatic deploy — GitHub Actions
 
 Every push to `main` also triggers the `.github/workflows/deploy.yml` workflow, which builds the
-app and publishes `dist/` to GitHub Pages automatically.
+app and publishes `apps/foodtruck/dist/` to GitHub Pages automatically.
 
 ## Connecting from Mobile Device (Android Tablet)
 
