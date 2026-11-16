@@ -112,35 +112,59 @@ try {
   await hideDevBadge(ctx)
   const shop = await ctx.newPage()
   await shop.goto(BASE)
-  let code
-  await scene(shop, 'Un client commande', 'Il ajoute ses articles avec les + : la formule se fait toute seule', async () => {
+  const totalIs = (text) => shop.locator('dl > div').filter({ hasText: /^Total/ }).getByText(text)
+  const bar = shop.locator('.fixed.bottom-0')
+  await scene(shop, 'Étape 1 : le menu', 'Il ajoute ses articles avec les + : la formule se fait toute seule', async () => {
     await shot(shop, 'client-menu')
-    const panier = shop.locator('#panier')
     await shop.getByRole('button', { name: 'Ajouter Le Poulet Mayo', exact: true }).click()
     await shop.getByRole('button', { name: 'Ajouter Oasis Cassis', exact: true }).click()
     await shop.getByRole('button', { name: 'Ajouter Cookie maison Chocolat', exact: true }).click()
-    await panier.getByText('1 × Formule : Le Poulet Mayo + Oasis (Cassis)').waitFor()
-    await panier.getByText('Remise formule').waitFor()
-    await panier.getByText('8,50').waitFor()
-    step('formule applied automatically: Poulet Mayo + Oasis + cookie = 8,50 €')
+    await bar.getByText('3 articles · 8,50').waitFor()
+    await bar.getByText('Formule appliquée').waitFor()
+    if (RECORD) await shop.waitForTimeout(800)
+    step('menu: formule applied automatically, 3 items = 8,50 €')
+    await bar.getByRole('button', { name: 'Voir le panier' }).click()
+  })
+
+  await scene(shop, 'Étape 2 : le panier', 'Il vérifie sa commande et ajuste les quantités', async () => {
+    await shop.waitForURL(/#panier$/)
+    await shop.getByText('1 × Formule : Le Poulet Mayo + Oasis (Cassis)', { exact: false }).waitFor()
+    await shop.getByText('Remise formule').waitFor()
+    await totalIs('8,50').waitFor()
+    step('cart review: formule line, discount, total 8,50 €')
 
     // A second sandwich alone is at its own price, until a drink joins it.
     await shop.getByRole('button', { name: 'Ajouter Le Poulet Mayo', exact: true }).click()
-    await shop.getByLabel('Quantité Le Poulet Mayo').getByText('2').waitFor()
-    await panier.getByText('14,00').waitFor()
+    await totalIs('14,00').waitFor()
+    await shop.getByRole('button', { name: '+ Ajouter d’autres articles' }).click()
     await shop.getByRole('button', { name: 'Ajouter Eau minérale', exact: true }).click()
-    await panier.getByText('1 × Formule : Le Poulet Mayo + Eau minérale').waitFor()
-    await panier.getByText('Remise formule (× 2)').waitFor()
-    await panier.getByText('15,00').waitFor()
+    await bar.getByRole('button', { name: 'Voir le panier' }).click()
+    await shop.getByText('1 × Formule : Le Poulet Mayo + Eau minérale', { exact: false }).waitFor()
+    await shop.getByText('Remise formule (× 2)').waitFor()
+    await totalIs('15,00').waitFor()
     if (RECORD) await shop.waitForTimeout(1200)
     step('second formule with water: 15,00 €')
 
-    // Removing the water drops back to one formule.
+    // Removing the water drops back to one formule (and the water leaves the cart).
     await shop.getByRole('button', { name: 'Retirer Eau minérale', exact: true }).click()
-    await panier.getByText('14,00').waitFor()
+    await totalIs('14,00').waitFor()
+    await shop.getByRole('button', { name: '+ Ajouter d’autres articles' }).click()
     await shop.getByRole('button', { name: 'Ajouter Eau minérale', exact: true }).click()
-    await panier.getByText('15,00').waitFor()
+    await bar.getByRole('button', { name: 'Voir le panier' }).click()
+    await totalIs('15,00').waitFor()
     step('counters: − / + update the formules')
+    await bar.getByRole('button', { name: 'Continuer' }).click()
+  })
+
+  let code
+  await scene(shop, 'Étape 3 : la livraison', 'Prénom, téléphone, point de livraison, paiement', async () => {
+    await shop.waitForURL(/#livraison$/)
+    // The phone's back button goes back one step, and forward again.
+    await shop.goBack()
+    await totalIs('15,00').waitFor()
+    await shop.goForward()
+    await shop.getByLabel('Prénom').waitFor()
+    step('back button returns to the cart')
 
     await type(shop.getByLabel('Prénom'), 'Marie')
     await type(shop.getByLabel('Téléphone'), '06 12 34 56 78')
@@ -150,7 +174,7 @@ try {
     step('delivery point chosen from the list')
     await shop.getByRole('button', { name: 'Ticket Restaurant' }).click()
     await shot(shop, 'client-checkout')
-    await shop.getByRole('button', { name: 'Commander' }).click()
+    await bar.getByRole('button', { name: 'Commander' }).click()
     await shop.waitForURL(/\/commande\/[A-Z0-9]{5}\?nouvelle=1/, { timeout: 15000 })
     await shop.getByText('Votre commande est bien enregistrée').waitFor()
     code = shop.url().match(/commande\/([A-Z0-9]{5})/)[1]
@@ -168,6 +192,21 @@ try {
     const bad = await shop.request.post(`${BASE}/api/commandes/historique`, { data: { codes: ['*'] } })
     if (bad.status() !== 400) throw new Error(`history endpoint accepted a bad code (${bad.status()})`)
     step('order listed in "Mes commandes" as "En préparation"')
+  })
+
+  await scene(shop, 'Le client revient', 'Ses coordonnées sont déjà là : il n’a plus qu’à confirmer', async () => {
+    await shop.goto(BASE)
+    await shop.getByRole('button', { name: 'Ajouter Le Tomate Mozza', exact: true }).click()
+    await shop.getByRole('button', { name: 'Ajouter Coca Cola', exact: true }).click()
+    await bar.getByRole('button', { name: 'Voir le panier' }).click()
+    await bar.getByRole('button', { name: 'Continuer' }).click()
+    await shop.getByText('Marie · 06 12 34 56 78').waitFor()
+    await shop.getByRole('button', { name: 'Modifier' }).waitFor()
+    if ((await shop.getByLabel('Prénom').count()) !== 0) throw new Error('details should be prefilled')
+    if (RECORD) await shop.waitForTimeout(1200)
+    step('returning customer: delivery details prefilled, straight to confirm')
+    // Leave the cart empty for the rest of the run.
+    await shop.evaluate(() => localStorage.removeItem('suricate:panier'))
   })
 
   // --- Bruno sees it and sends it out ---

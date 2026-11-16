@@ -15,7 +15,7 @@ export default function MyOrdersPage() {
       <OrderHistory />
       <p className='mt-8 text-center'>
         <Link href='/' className='btn-primary inline-block'>
-          Commander
+          Nouvelle commande
         </Link>
       </p>
     </main>

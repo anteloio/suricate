@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   cartItemKey,
   cartItemSchema,
@@ -9,6 +9,7 @@ import {
   priceCart,
   type CartItem,
   type MenuProduct,
+  type PricedLine,
   type PricingRules,
 } from '@/lib/cart'
 import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/db/schema'
@@ -62,6 +63,28 @@ export function OrderForm({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
+  const [step, setStep] = useState<Step>('menu')
+  // Details restored from this phone are shown as a summary; a new customer gets the fields.
+  const [editingDetails, setEditingDetails] = useState(true)
+  const formRef = useRef<HTMLFormElement>(null)
+
+  // Steps live in the URL hash (#panier, #livraison) so the phone's back button goes back a step.
+  useEffect(() => {
+    const read = () => {
+      const hash = window.location.hash.slice(1)
+      setStep(hash === 'panier' || hash === 'livraison' ? hash : 'menu')
+      setError(null)
+    }
+    read()
+    window.addEventListener('hashchange', read)
+    return () => window.removeEventListener('hashchange', read)
+  }, [])
+
+  const goTo = (next: Step) => {
+    if (next === step) return
+    window.location.hash = next === 'menu' ? '' : next
+    formRef.current?.scrollIntoView({ block: 'start' })
+  }
 
   // Restoring from localStorage must happen after hydration (the server has no localStorage).
   useEffect(() => {
@@ -73,15 +96,17 @@ export function OrderForm({
         const pointId = deliveryPoints.some((p) => p.id === saved.deliveryPointId)
           ? saved.deliveryPointId!
           : defaultPointId
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setCustomer({
+        const restored: Customer = {
           customerName: typeof saved.customerName === 'string' ? saved.customerName.trim().split(/\s+/)[0] : '',
           phone: typeof saved.phone === 'string' ? saved.phone : '',
           deliveryPointId: pointId,
           paymentMethod: PAYMENT_METHODS.includes(saved.paymentMethod as PaymentMethod)
             ? (saved.paymentMethod as PaymentMethod)
             : '',
-        })
+        }
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCustomer(restored)
+        setEditingDetails(!(restored.customerName && restored.phone && restored.deliveryPointId))
       }
       const savedCart = localStorage.getItem(CART_KEY)
       if (savedCart) {
@@ -104,6 +129,16 @@ export function OrderForm({
   useEffect(() => {
     if (loaded) localStorage.setItem(CART_KEY, JSON.stringify(cart))
   }, [cart, loaded])
+
+  // Delivery details are remembered on this phone as soon as they are typed.
+  useEffect(() => {
+    if (loaded) localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer))
+  }, [customer, loaded])
+
+  // A step past the menu makes no sense with an empty cart (e.g. reloading #livraison after ordering).
+  useEffect(() => {
+    if (loaded && cart.length === 0 && step !== 'menu') window.location.hash = ''
+  }, [loaded, cart.length, step])
 
   const priced = useMemo(() => priceCart(cart, menu, rules), [cart, menu, rules])
   const itemCount = cart.reduce((n, i) => n + i.quantity, 0)
@@ -130,7 +165,10 @@ export function OrderForm({
     e.preventDefault()
     setError(null)
     if (!priced.ok) return setError(priced.error)
-    if (!customer.deliveryPointId) return setError('Choisissez un point de livraison.')
+    if (!customer.customerName.trim() || !customer.phone.trim() || !customer.deliveryPointId) {
+      setEditingDetails(true)
+      return setError('Indiquez votre prénom, votre téléphone et le point de livraison.')
+    }
     if (!customer.paymentMethod) return setError('Choisissez un moyen de paiement.')
 
     setSubmitting(true)
@@ -150,7 +188,7 @@ export function OrderForm({
       const history = parseHistory(localStorage.getItem(ORDER_HISTORY_KEY))
       localStorage.setItem(ORDER_HISTORY_KEY, JSON.stringify(addToHistory(history, result.code)))
       localStorage.removeItem(CART_KEY)
-      router.push(`/commande/${result.code}?nouvelle=1`)
+      router.replace(`/commande/${result.code}?nouvelle=1`)
     } catch {
       setError('Connexion impossible. Vérifiez votre réseau et réessayez.')
       setSubmitting(false)
@@ -160,129 +198,188 @@ export function OrderForm({
   const sandwiches = menu.filter((p) => p.category === 'sandwich')
   const drinks = menu.filter((p) => p.category === 'boisson')
   const desserts = menu.filter((p) => p.category === 'dessert')
+  const point = deliveryPoints.find((p) => p.id === customer.deliveryPointId)
+  const day = days.find((d) => d.date === serviceDate) ?? days[0]
+
+  const lineKey = (l: PricedLine) => `${l.kind}:${l.productId}:${l.variant}:${l.drinkId}:${l.drinkVariant}`
+  const formuleLines = priced.lines.filter((l) => l.kind === 'formule')
 
   return (
-    <form onSubmit={submit} className='mt-8 space-y-10'>
-      {days.length > 1 ? (
-        <section>
-          <h2 className='section-title'>Jour de livraison</h2>
-          <div className='mt-3 flex flex-wrap gap-2'>
-            {days.map((d) => (
-              <button
-                key={d.date}
-                type='button'
-                onClick={() => setServiceDate(d.date)}
-                className={`chip ${serviceDate === d.date ? 'chip-selected' : ''}`}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-        </section>
-      ) : (
-        <p className='rounded-xl bg-stone-50 px-4 py-3 text-center text-neutral-700 ring-1 ring-neutral-200'>
-          Livraison <strong className='lowercase'>{days[0].label}</strong>, {deliveryWindow}
-        </p>
+    <form ref={formRef} onSubmit={submit} className='mt-6 scroll-mt-4 space-y-8'>
+      <Progress step={step} canReview={itemCount > 0} onGo={goTo} />
+
+      {step === 'menu' && (
+        <>
+          <p className='rounded-xl bg-stone-50 px-4 py-3 text-center text-neutral-700 ring-1 ring-neutral-200'>
+            Livraison <strong className='lowercase'>{days[0].label}</strong>
+            {days.length > 1 ? ' (ou un autre jour)' : ''}, {deliveryWindow}
+          </p>
+          {rules.formulePriceCents > 0 && sandwiches.some((p) => p.formulaEligible) && drinks.length > 0 && (
+            <p className='rounded-xl bg-white px-4 py-3 text-center text-neutral-700 ring-2 ring-formule'>
+              <strong className='text-formule-dark'>Formule {formatEuros(rules.formulePriceCents)}</strong> : un
+              sandwich* et une boisson. Ajoutez-les simplement, la remise s’applique toute seule.
+            </p>
+          )}
+          <ProductSection title='Sandwichs' products={sandwiches} quantities={quantities} onChange={changeQuantity} />
+          <ProductSection title='Boissons' products={drinks} quantities={quantities} onChange={changeQuantity} />
+          <ProductSection title='Desserts' products={desserts} quantities={quantities} onChange={changeQuantity} />
+        </>
       )}
 
-      {rules.formulePriceCents > 0 && sandwiches.some((p) => p.formulaEligible) && drinks.length > 0 && (
-        <p className='rounded-xl bg-white px-4 py-3 text-center text-neutral-700 ring-2 ring-formule'>
-          <strong className='text-formule-dark'>Formule {formatEuros(rules.formulePriceCents)}</strong> : un sandwich*
-          et une boisson. Ajoutez-les simplement, la remise s’applique toute seule.
-        </p>
-      )}
-
-      <ProductSection title='Sandwichs' products={sandwiches} quantities={quantities} onChange={changeQuantity} />
-      <ProductSection title='Boissons' products={drinks} quantities={quantities} onChange={changeQuantity} />
-      <ProductSection title='Desserts' products={desserts} quantities={quantities} onChange={changeQuantity} />
-
-      <section id='panier'>
-        <h2 className='section-title'>Votre commande</h2>
-        {cart.length === 0 ? (
-          <p className='mt-3 text-neutral-500'>Votre panier est vide : utilisez les boutons + du menu.</p>
-        ) : (
-          <ul className='mt-3 divide-y divide-neutral-200 rounded-2xl bg-white ring-1 ring-neutral-200'>
-            {priced.lines.map((line) => (
-              <li
-                key={`${line.kind}:${line.productId}:${line.variant}:${line.drinkId}:${line.drinkVariant}`}
-                className='flex items-center gap-3 px-4 py-3'
-              >
-                <p className={`flex-1 ${line.kind === 'formule' ? 'font-medium text-formule-dark' : ''}`}>
-                  {line.quantity} × {line.label}
-                </p>
-                <p className='tabular-nums'>{formatEuros(line.quantity * line.unitPriceCents)}</p>
-              </li>
-            ))}
-            {priced.formulaDiscountCents > 0 && (
-              <li className='flex justify-between px-4 py-3 text-formule-dark'>
-                <span>
-                  Remise formule{priced.formulaCount > 1 ? ` (× ${priced.formulaCount})` : ''}
-                </span>
-                <span className='tabular-nums'>
-                  économisé {formatEuros(priced.formulaDiscountCents)}
-                </span>
-              </li>
-            )}
-            <li className='flex justify-between px-4 py-3 text-lg font-semibold'>
-              <span>Total</span>
-              <span className='tabular-nums'>{formatEuros(priced.totalCents)}</span>
-            </li>
-          </ul>
-        )}
-        {cart.length > 0 && !priced.ok && <p className='mt-2 text-sm text-amber-700'>{priced.error}</p>}
-      </section>
-
-      {cart.length > 0 && (
+      {step === 'panier' && (
         <section className='space-y-4'>
-          <h2 className='section-title'>Livraison</h2>
-          <div className='grid gap-4 sm:grid-cols-2'>
-            <Field label='Prénom'>
-              <input
-                className='input'
-                required
-                autoComplete='given-name'
-                value={customer.customerName}
-                onChange={(e) => update('customerName', e.target.value)}
-              />
-            </Field>
-            <Field label='Téléphone'>
-              <input
-                className='input'
-                required
-                type='tel'
-                autoComplete='tel'
-                value={customer.phone}
-                onChange={(e) => update('phone', e.target.value)}
-              />
-            </Field>
+          <h2 className='section-title'>Votre panier</h2>
+          <ul className='divide-y divide-neutral-200 rounded-2xl bg-white ring-1 ring-neutral-200'>
+            {cart.map((item) => {
+              const product = menu.find((p) => p.id === item.productId)
+              if (!product) return null
+              const name = item.variant ? `${product.name} ${item.variant}` : product.name
+              return (
+                <li key={cartItemKey(item)} className='flex items-center gap-3 px-4 py-3'>
+                  <div className='flex-1'>
+                    <p className='font-medium'>
+                      {product.name}
+                      {item.variant && <span className='text-neutral-500'> · {item.variant}</span>}
+                    </p>
+                    <p className='text-sm text-neutral-500 tabular-nums'>{formatEuros(product.priceCents)}</p>
+                  </div>
+                  <Counter
+                    name={name}
+                    quantity={item.quantity}
+                    onChange={(delta) => changeQuantity(item.productId, item.variant ?? null, delta)}
+                  />
+                </li>
+              )
+            })}
+          </ul>
+          <button type='button' className='text-sm font-medium underline' onClick={() => goTo('menu')}>
+            + Ajouter d’autres articles
+          </button>
+
+          <div className='rounded-2xl bg-white ring-1 ring-neutral-200'>
+            {formuleLines.length > 0 && (
+              <ul className='border-b border-neutral-200 px-4 py-3 text-formule-dark'>
+                {formuleLines.map((l) => (
+                  <li key={lineKey(l)}>
+                    {l.quantity} × {l.label} à {formatEuros(l.unitPriceCents)}
+                  </li>
+                ))}
+              </ul>
+            )}
+            <dl className='space-y-1 px-4 py-3'>
+              <div className='flex justify-between text-neutral-600'>
+                <dt>Sous-total</dt>
+                <dd className='tabular-nums'>{formatEuros(priced.subtotalCents)}</dd>
+              </div>
+              {priced.formulaDiscountCents > 0 && (
+                <div className='flex justify-between text-formule-dark'>
+                  <dt>Remise formule{priced.formulaCount > 1 ? ` (× ${priced.formulaCount})` : ''}</dt>
+                  <dd className='tabular-nums'>− {formatEuros(priced.formulaDiscountCents)}</dd>
+                </div>
+              )}
+              <div className='flex justify-between pt-1 text-lg font-semibold'>
+                <dt>Total</dt>
+                <dd className='tabular-nums'>{formatEuros(priced.totalCents)}</dd>
+              </div>
+            </dl>
           </div>
-          <fieldset>
-            <legend className='label'>Point de livraison</legend>
-            <div className='mt-2 grid gap-2'>
-              {deliveryPoints.map((p) => {
-                const selected = customer.deliveryPointId === p.id
-                return (
-                  <label
-                    key={p.id}
-                    className={`flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 ring-1 ${selected ? 'bg-stone-50 ring-2 ring-neutral-900' : 'bg-white ring-neutral-200 hover:bg-stone-50'}`}
+          <p className='text-sm text-neutral-500'>Paiement à la livraison. Livraison offerte.</p>
+          {!priced.ok && cart.length > 0 && <p className='text-sm text-amber-700'>{priced.error}</p>}
+        </section>
+      )}
+
+      {step === 'livraison' && (
+        <section className='space-y-5'>
+          <h2 className='section-title'>Livraison</h2>
+
+          {days.length > 1 ? (
+            <fieldset>
+              <legend className='label'>Jour</legend>
+              <div className='mt-2 flex flex-wrap gap-2'>
+                {days.map((d) => (
+                  <button
+                    key={d.date}
+                    type='button'
+                    onClick={() => setServiceDate(d.date)}
+                    className={`chip ${serviceDate === d.date ? 'chip-selected' : ''}`}
                   >
-                    <input
-                      type='radio'
-                      name='deliveryPoint'
-                      required
-                      className='mt-1'
-                      checked={selected}
-                      onChange={() => update('deliveryPointId', p.id)}
-                    />
-                    <span>
-                      <span className='block font-medium'>{p.name}</span>
-                      <span className='block text-sm text-neutral-500'>{p.address}</span>
-                    </span>
-                  </label>
-                )
-              })}
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          ) : null}
+
+          {editingDetails ? (
+            <>
+              <div className='grid gap-4 sm:grid-cols-2'>
+                <Field label='Prénom'>
+                  <input
+                    className='input'
+                    required
+                    autoComplete='given-name'
+                    value={customer.customerName}
+                    onChange={(e) => update('customerName', e.target.value)}
+                  />
+                </Field>
+                <Field label='Téléphone' hint='Bruno vous prévient sur WhatsApp à l’arrivée.'>
+                  <input
+                    className='input'
+                    required
+                    type='tel'
+                    autoComplete='tel'
+                    value={customer.phone}
+                    onChange={(e) => update('phone', e.target.value)}
+                  />
+                </Field>
+              </div>
+              <fieldset>
+                <legend className='label'>Point de livraison</legend>
+                <div className='mt-2 grid gap-2'>
+                  {deliveryPoints.map((p) => {
+                    const selected = customer.deliveryPointId === p.id
+                    return (
+                      <label
+                        key={p.id}
+                        className={`flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 ring-1 ${selected ? 'bg-stone-50 ring-2 ring-neutral-900' : 'bg-white ring-neutral-200 hover:bg-stone-50'}`}
+                      >
+                        <input
+                          type='radio'
+                          name='deliveryPoint'
+                          required
+                          className='mt-1'
+                          checked={selected}
+                          onChange={() => update('deliveryPointId', p.id)}
+                        />
+                        <span>
+                          <span className='block font-medium'>{p.name}</span>
+                          <span className='block text-sm text-neutral-500'>{p.address}</span>
+                        </span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </fieldset>
+            </>
+          ) : (
+            // Returning customer: details restored from this phone, one tap to change them.
+            <div className='card flex items-start justify-between gap-3'>
+              <div>
+                <p className='font-semibold'>
+                  {customer.customerName} · {customer.phone}
+                </p>
+                <p className='text-sm text-neutral-600'>{point?.name}</p>
+                <p className='text-sm text-neutral-500'>{point?.address}</p>
+                <p className='mt-1 text-sm text-neutral-600'>
+                  <span className='lowercase'>{day.label}</span>, {deliveryWindow}
+                </p>
+              </div>
+              <button type='button' className='btn-secondary shrink-0' onClick={() => setEditingDetails(true)}>
+                Modifier
+              </button>
             </div>
-          </fieldset>
+          )}
+
           <fieldset>
             <legend className='label'>Paiement à la livraison</legend>
             <div className='mt-2 flex flex-wrap gap-2'>
@@ -300,7 +397,7 @@ export function OrderForm({
           </fieldset>
           <Field label='Un mot pour Bruno ? (facultatif)'>
             <textarea
-              className='input min-h-20'
+              className='input min-h-16'
               maxLength={500}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -327,7 +424,17 @@ export function OrderForm({
 
       {itemCount > 0 && (
         <div className='no-print fixed inset-x-0 bottom-0 z-10 border-t border-neutral-200 bg-white/95 px-4 py-3 backdrop-blur'>
-          <div className='mx-auto flex max-w-2xl items-center gap-4'>
+          <div className='mx-auto flex max-w-2xl items-center gap-3'>
+            {step !== 'menu' && (
+              <button
+                type='button'
+                className='qty shrink-0'
+                aria-label='Étape précédente'
+                onClick={() => goTo(step === 'livraison' ? 'panier' : 'menu')}
+              >
+                ←
+              </button>
+            )}
             <div className='flex-1 text-sm leading-tight'>
               <p className='font-semibold'>
                 {itemCount} article{itemCount > 1 ? 's' : ''} · {formatEuros(priced.totalCents)}
@@ -339,7 +446,17 @@ export function OrderForm({
                 Commandez avant {cutoff}
               </p>
             </div>
-            {cart.length > 0 && (
+            {step === 'menu' && (
+              <button type='button' className='btn-primary' onClick={() => goTo('panier')}>
+                Voir le panier
+              </button>
+            )}
+            {step === 'panier' && (
+              <button type='button' className='btn-primary' disabled={!priced.ok} onClick={() => goTo('livraison')}>
+                Continuer
+              </button>
+            )}
+            {step === 'livraison' && (
               <button type='submit' disabled={submitting} className='btn-primary'>
                 {submitting ? 'Envoi…' : 'Commander'}
               </button>
@@ -348,6 +465,44 @@ export function OrderForm({
         </div>
       )}
     </form>
+  )
+}
+
+const STEPS = [
+  { id: 'menu', label: 'Menu' },
+  { id: 'panier', label: 'Panier' },
+  { id: 'livraison', label: 'Livraison' },
+] as const
+type Step = (typeof STEPS)[number]['id']
+
+/** "1 Menu · 2 Panier · 3 Livraison": earlier steps can be tapped to go back. */
+function Progress({ step, canReview, onGo }: { step: Step; canReview: boolean; onGo: (s: Step) => void }) {
+  const current = STEPS.findIndex((s) => s.id === step)
+  return (
+    <ol className='flex items-center justify-center gap-2 text-sm' aria-label='Étapes de la commande'>
+      {STEPS.map((s, i) => {
+        const reachable = i < current || (i === 1 && canReview && current > 1)
+        return (
+          <li key={s.id} className='flex items-center gap-2'>
+            {i > 0 && <span className='h-px w-5 bg-neutral-300' aria-hidden />}
+            <button
+              type='button'
+              disabled={!reachable}
+              aria-current={i === current ? 'step' : undefined}
+              onClick={() => onGo(s.id)}
+              className={`flex items-center gap-1.5 rounded-full px-2 py-1 ${i === current ? 'font-semibold text-neutral-900' : i < current ? 'text-neutral-700 underline' : 'text-neutral-400'}`}
+            >
+              <span
+                className={`flex size-6 items-center justify-center rounded-full text-xs ${i <= current ? 'bg-neutral-900 text-white' : 'bg-neutral-200 text-neutral-500'}`}
+              >
+                {i + 1}
+              </span>
+              {s.label}
+            </button>
+          </li>
+        )
+      })}
+    </ol>
   )
 }
 
