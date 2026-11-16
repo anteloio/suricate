@@ -1,0 +1,85 @@
+import 'server-only'
+import { and, asc, count, desc, eq, gte, inArray, ne } from 'drizzle-orm'
+import { db, orderLines, orders, products, serviceDays, settings, type Settings } from './db'
+import { addDays, orderableDays, parisNow } from './time'
+
+export async function getSettings(): Promise<Settings> {
+  const d = await db()
+  const [row] = await d.select().from(settings).where(eq(settings.id, 1))
+  if (row) return row
+  const [created] = await d.insert(settings).values({ id: 1 }).returning()
+  return created
+}
+
+export async function getMenu({ includeInactive = false } = {}) {
+  const d = await db()
+  return d
+    .select()
+    .from(products)
+    .where(includeInactive ? undefined : eq(products.active, true))
+    .orderBy(asc(products.position), asc(products.id))
+}
+
+/** Open days from today on (Paris time). */
+export async function getUpcomingOpenDays(): Promise<string[]> {
+  const d = await db()
+  const rows = await d
+    .select({ date: serviceDays.date })
+    .from(serviceDays)
+    .where(gte(serviceDays.date, parisNow().date))
+    .orderBy(asc(serviceDays.date))
+  return rows.map((r) => r.date)
+}
+
+export async function getOrderableDays(cutoffMinutes: number) {
+  return orderableDays(await getUpcomingOpenDays(), cutoffMinutes).slice(0, 7)
+}
+
+export async function getOrderByCode(code: string) {
+  const d = await db()
+  const [order] = await d.select().from(orders).where(eq(orders.code, code.toUpperCase()))
+  if (!order) return null
+  const lines = await d.select().from(orderLines).where(eq(orderLines.orderId, order.id)).orderBy(asc(orderLines.id))
+  return { order, lines }
+}
+
+export async function getOrdersForDay(date: string) {
+  const d = await db()
+  const dayOrders = await d.select().from(orders).where(eq(orders.serviceDate, date)).orderBy(asc(orders.createdAt))
+  const lines = dayOrders.length
+    ? await d
+        .select()
+        .from(orderLines)
+        .where(
+          inArray(
+            orderLines.orderId,
+            dayOrders.map((o) => o.id)
+          )
+        )
+        .orderBy(asc(orderLines.id))
+    : []
+  return dayOrders.map((order) => ({ order, lines: lines.filter((l) => l.orderId === order.id) }))
+}
+
+/** Number of non-cancelled orders per day, for the days screen. */
+export async function getOrderCountsFrom(date: string): Promise<Map<string, number>> {
+  const d = await db()
+  const rows = await d
+    .select({ date: orders.serviceDate, n: count() })
+    .from(orders)
+    .where(and(gte(orders.serviceDate, date), ne(orders.status, 'annulee')))
+    .groupBy(orders.serviceDate)
+  return new Map(rows.map((r) => [r.date, Number(r.n)]))
+}
+
+/** Days that have orders, most recent first (admin day picker). */
+export async function getRecentOrderDays(limit = 30): Promise<string[]> {
+  const d = await db()
+  const rows = await d
+    .selectDistinct({ date: orders.serviceDate })
+    .from(orders)
+    .where(gte(orders.serviceDate, addDays(parisNow().date, -90)))
+    .orderBy(desc(orders.serviceDate))
+    .limit(limit)
+  return rows.map((r) => r.date)
+}

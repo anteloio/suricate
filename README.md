@@ -3,6 +3,7 @@
 Apps for the Suricate food truck, in one npm workspaces repo:
 
 - `apps/foodtruck/` — point of sale application with thermal printer support.
+- `apps/sandwichs/` — online sandwich pre-orders with delivery (see `apps/sandwichs/README.md`).
 - `src/config.js` — the food truck menu (items, formules, prices). It stays at this path so Bruno
   can keep editing it as before.
 

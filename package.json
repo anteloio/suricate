@@ -2,7 +2,7 @@
   "name": "suricate",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "apps/foodtruck"
   ],
   "scripts": {
     "dev": "npm run dev -w apps/foodtruck",

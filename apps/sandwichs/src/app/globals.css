@@ -1,0 +1,69 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-brand: #3f3f3f;
+  --color-formule: #22c55e;
+  --color-formule-dark: #15803d;
+  --font-serif: 'Didot', 'Bodoni 72', 'Playfair Display', Georgia, serif;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-white text-neutral-900 antialiased;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    Arial,
+    sans-serif;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+}
+
+@layer components {
+  .section-title {
+    @apply font-serif text-xl tracking-[0.15em] uppercase;
+  }
+  .label {
+    @apply text-sm font-medium text-neutral-700;
+  }
+  .input {
+    @apply w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 text-base outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900;
+  }
+  .chip {
+    @apply rounded-full border border-neutral-300 bg-white px-3.5 py-1.5 text-sm transition-colors hover:border-neutral-900 active:scale-95;
+  }
+  .chip-selected {
+    @apply border-neutral-900 bg-neutral-900 text-white;
+  }
+  .chip-formule {
+    @apply border-formule-dark bg-formule text-white;
+  }
+  .qty {
+    @apply flex size-8 items-center justify-center rounded-full border border-neutral-300 text-lg leading-none hover:border-neutral-900;
+  }
+  .btn-primary {
+    @apply rounded-full bg-neutral-900 px-6 py-3 font-semibold text-white transition hover:bg-neutral-700 disabled:opacity-50;
+  }
+  .btn-formule {
+    @apply rounded-full bg-formule px-6 py-3 font-semibold text-white transition hover:bg-formule-dark disabled:opacity-40;
+  }
+  .btn-secondary {
+    @apply rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium transition hover:border-neutral-900 disabled:opacity-50;
+  }
+  .card {
+    @apply rounded-2xl bg-white p-4 ring-1 ring-neutral-200;
+  }
+}

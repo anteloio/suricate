@@ -1,0 +1,184 @@
+import Link from 'next/link'
+import { PrintButton } from '@/components/print-button'
+import { productionTotals } from '@/lib/cart'
+import type { OrderStatus } from '@/lib/db/schema'
+import { formatEuros } from '@/lib/money'
+import { getOrdersForDay, getRecentOrderDays, getSettings, getUpcomingOpenDays } from '@/lib/queries'
+import { formatCutoff, formatDay, parisNow, relativeDay } from '@/lib/time'
+import { changeOrderStatus, dispatchAll } from '../actions'
+
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  confirmee: 'À préparer',
+  en_route: 'En route',
+  livree: 'Livrée',
+  annulee: 'Annulée',
+}
+const STATUS_CLASS: Record<OrderStatus, string> = {
+  confirmee: 'bg-amber-100 text-amber-900',
+  en_route: 'bg-blue-100 text-blue-900',
+  livree: 'bg-green-100 text-green-900',
+  annulee: 'bg-red-100 text-red-900 line-through',
+}
+
+export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) {
+  const { date: requested } = await searchParams
+  const now = parisNow()
+  const [settings, openDays, orderDays] = await Promise.all([
+    getSettings(),
+    getUpcomingOpenDays(),
+    getRecentOrderDays(),
+  ])
+
+  const date =
+    typeof requested === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(requested)
+      ? requested
+      : openDays.includes(now.date) || orderDays.includes(now.date)
+        ? now.date
+        : (openDays[0] ?? now.date)
+  const pickerDays = [...new Set([now.date, date, ...openDays.slice(0, 5), ...orderDays.slice(0, 5)])].sort()
+
+  const dayOrders = await getOrdersForDay(date)
+  const active = dayOrders.filter((o) => o.order.status !== 'annulee')
+  const production = productionTotals(active.flatMap((o) => o.lines))
+  const revenue = active.reduce((sum, o) => sum + o.order.totalCents, 0)
+  const byPayment = new Map<string, number>()
+  for (const { order } of active)
+    byPayment.set(order.paymentMethod, (byPayment.get(order.paymentMethod) ?? 0) + order.totalCents)
+  const toDispatch = active.filter((o) => o.order.status === 'confirmee').length
+
+  const isOpen = openDays.includes(date)
+  const stillOrdering = isOpen && (date > now.date || (date === now.date && now.minutes < settings.cutoffMinutes))
+
+  return (
+    <main className='space-y-6'>
+      <nav className='no-print flex flex-wrap gap-2'>
+        {pickerDays.map((d) => (
+          <Link key={d} href={`/admin?date=${d}`} className={`chip ${d === date ? 'chip-selected' : ''}`}>
+            {relativeDay(d, now)}
+          </Link>
+        ))}
+      </nav>
+
+      <div>
+        <h1 className='text-2xl font-semibold first-letter:uppercase'>{formatDay(date)}</h1>
+        <p className='text-neutral-600'>
+          {!isOpen
+            ? 'Jour non ouvert aux commandes.'
+            : stillOrdering
+              ? `Commandes ouvertes jusqu'à ${formatCutoff(settings.cutoffMinutes)}${date === now.date ? '' : ' le jour même'}.`
+              : 'Commandes fermées.'}{' '}
+          {active.length} commande{active.length > 1 ? 's' : ''} · {formatEuros(revenue)}
+          {[...byPayment.entries()].map(([m, c]) => ` · ${m} ${formatEuros(c)}`).join('')}
+        </p>
+      </div>
+
+      {production.length > 0 && (
+        <section className='card'>
+          <h2 className='font-semibold'>À préparer</h2>
+          <ul className='mt-2 grid gap-x-6 sm:grid-cols-2'>
+            {production.map((p) => (
+              <li key={p.name} className='flex justify-between border-b border-neutral-100 py-1'>
+                <span>{p.name}</span>
+                <strong className='tabular-nums'>{p.quantity}</strong>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {dayOrders.length > 0 && (
+        <div className='no-print flex flex-wrap gap-2'>
+          {toDispatch > 0 && (
+            <form action={dispatchAll}>
+              <input type='hidden' name='date' value={date} />
+              <button className='btn-primary'>Tout passer en route ({toDispatch}) : e-mail aux clients</button>
+            </form>
+          )}
+          <PrintButton />
+        </div>
+      )}
+
+      {dayOrders.length === 0 ? (
+        <p className='card text-neutral-500'>Aucune commande pour ce jour.</p>
+      ) : (
+        <ul className='space-y-3'>
+          {dayOrders.map(({ order, lines }) => (
+            <li key={order.id} className={`card break-inside-avoid ${order.status === 'annulee' ? 'opacity-60' : ''}`}>
+              <div className='flex flex-wrap items-start justify-between gap-2'>
+                <div>
+                  <p className='text-lg font-semibold'>
+                    {order.customerName}
+                    {order.company && <span className='font-normal text-neutral-500'> · {order.company}</span>}
+                  </p>
+                  <p className='text-sm text-neutral-500'>
+                    {order.code} · commandé à{' '}
+                    {order.createdAt.toLocaleTimeString('fr-FR', {
+                      timeZone: 'Europe/Paris',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </p>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_CLASS[order.status]}`}>
+                  {STATUS_LABEL[order.status]}
+                </span>
+              </div>
+              <ul className='mt-3'>
+                {lines.map((l) => (
+                  <li key={l.id}>
+                    <strong>{l.quantity} ×</strong> {l.label}
+                  </li>
+                ))}
+              </ul>
+              <div className='mt-3 grid gap-1 text-sm text-neutral-700'>
+                <p>
+                  📍{' '}
+                  <a
+                    className='underline'
+                    target='_blank'
+                    href={`https://www.google.com/maps/search/?api=1&query=${order.lat},${order.lon}`}
+                  >
+                    {order.addressLabel}
+                  </a>
+                  {order.addressDetails && <> · {order.addressDetails}</>}
+                </p>
+                <p>
+                  📞{' '}
+                  <a className='underline' href={`tel:${order.phone.replace(/\s/g, '')}`}>
+                    {order.phone}
+                  </a>{' '}
+                  · {order.email}
+                </p>
+                <p>
+                  💶 <strong>{formatEuros(order.totalCents)}</strong> en {order.paymentMethod}
+                </p>
+                {order.notes && <p className='rounded-lg bg-amber-50 px-2 py-1'>💬 {order.notes}</p>}
+              </div>
+              <div className='no-print mt-3 flex flex-wrap gap-2'>
+                {(['en_route', 'livree', 'confirmee', 'annulee'] as const)
+                  .filter((s) => s !== order.status)
+                  .map((s) => (
+                    <form key={s} action={changeOrderStatus}>
+                      <input type='hidden' name='orderId' value={order.id} />
+                      <input type='hidden' name='status' value={s} />
+                      <button className='btn-secondary'>
+                        {s === 'en_route'
+                          ? order.dispatchedAt
+                            ? 'Remettre en route'
+                            : 'En route (e-mail au client)'
+                          : s === 'livree'
+                            ? 'Livrée'
+                            : s === 'confirmee'
+                              ? 'Remettre à préparer'
+                              : 'Annuler'}
+                      </button>
+                    </form>
+                  ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
+  )
+}

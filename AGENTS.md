@@ -9,6 +9,7 @@
 
 ```
 apps/foodtruck/   Food truck point-of-sale (Vite + React, deployed to GitHub Pages)
+apps/sandwichs/   Sandwich pre-orders with delivery (Next.js, Vercel) — see its README/AGENTS.md
 src/config.js     The food truck menu, edited by Bruno by hand (kept here on purpose, see below)
 GENERER.sh        Bruno's one-click deploy script (runs from the repo root)
 package.json      Workspace root: proxies dev/build/deploy to apps/foodtruck
@@ -18,8 +19,11 @@ package.json      Workspace root: proxies dev/build/deploy to apps/foodtruck
   Bluetooth thermal printer through the RawBT app. The menu (burgers, formules, ingredients,
   prices) lives in the root `src/config.js`; `apps/foodtruck/src/config.js` only re-exports it. The build is a single inlined `index.html`
   in `apps/foodtruck/dist/`, which is committed on purpose.
-- New apps go in `apps/<name>/` with their own `package.json`. Install dependencies from the
-  repo root (`npm install`); there is a single `package-lock.json` at the root.
+- **apps/sandwichs** — customers order sandwiches online before 10h for lunch delivery in Sophia
+  Antipolis; Bruno manages days, menu and orders in `/admin`. It is a standalone npm project
+  (own `package-lock.json`, not a root workspace) so Bruno's root `npm install` stays light.
+- Only `apps/foodtruck` is an npm workspace of the root (root `package.json` → `workspaces`).
+  Keep heavy apps out of the root workspaces, for the same reason.
 
 ## Don't break Bruno's deploy
 
