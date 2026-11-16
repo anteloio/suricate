@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Logo } from '@/components/logo'
 import { formatEuros } from '@/lib/money'
@@ -69,6 +70,14 @@ export default async function OrderPage({ params, searchParams }: PageProps<'/co
           Vous recevrez un message WhatsApp dès que votre commande sera arrivée.
         </p>
       )}
+      <p className='mt-6 flex justify-center gap-3'>
+        <Link href='/mes-commandes' className='btn-secondary'>
+          Mes commandes
+        </Link>
+        <Link href='/' className='btn-secondary'>
+          Nouvelle commande
+        </Link>
+      </p>
     </main>
   )
 }

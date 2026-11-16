@@ -1,6 +1,7 @@
 import 'server-only'
 import { and, asc, count, desc, eq, gte, inArray, ne } from 'drizzle-orm'
 import { db, orderLines, orders, products, serviceDays, settings, type Settings } from './db'
+import type { HistoryOrder } from './order-history'
 import { addDays, orderableDays, parisNow } from './time'
 
 export async function getSettings(): Promise<Settings> {
@@ -82,4 +83,34 @@ export async function getRecentOrderDays(limit = 30): Promise<string[]> {
     .orderBy(desc(orders.serviceDate))
     .limit(limit)
   return rows.map((r) => r.date)
+}
+
+/** "Mes commandes": only the orders whose codes the customer's device holds (no listing). */
+export async function getOrdersByCodes(codes: string[]): Promise<HistoryOrder[]> {
+  if (codes.length === 0) return []
+  const d = await db()
+  const found = await d.select().from(orders).where(inArray(orders.code, codes))
+  const lines = found.length
+    ? await d
+        .select()
+        .from(orderLines)
+        .where(
+          inArray(
+            orderLines.orderId,
+            found.map((o) => o.id)
+          )
+        )
+        .orderBy(asc(orderLines.id))
+    : []
+  return found
+    .map((o) => ({
+      code: o.code,
+      serviceDate: o.serviceDate,
+      status: o.status,
+      totalCents: o.totalCents,
+      paymentMethod: o.paymentMethod,
+      where: o.addressLabel,
+      lines: lines.filter((l) => l.orderId === o.id).map((l) => ({ label: l.label, quantity: l.quantity })),
+    }))
+    .sort((a, b) => codes.indexOf(a.code) - codes.indexOf(b.code))
 }

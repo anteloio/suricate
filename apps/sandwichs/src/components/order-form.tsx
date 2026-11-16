@@ -14,6 +14,7 @@ import {
 import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/db/schema'
 import { type DeliveryPoint } from '@/lib/delivery-points'
 import { formatEuros } from '@/lib/money'
+import { addToHistory, ORDER_HISTORY_KEY, parseHistory } from '@/lib/order-history'
 
 type Day = { date: string; label: string }
 
@@ -146,6 +147,8 @@ export function OrderForm({
         return
       }
       localStorage.setItem(CUSTOMER_KEY, JSON.stringify(customer))
+      const history = parseHistory(localStorage.getItem(ORDER_HISTORY_KEY))
+      localStorage.setItem(ORDER_HISTORY_KEY, JSON.stringify(addToHistory(history, result.code)))
       localStorage.removeItem(CART_KEY)
       router.push(`/commande/${result.code}?nouvelle=1`)
     } catch {

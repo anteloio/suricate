@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { priceCart, productionTotals, type MenuProduct } from '../cart'
 import { DELIVERY_POINTS, findDeliveryPoint } from '../delivery-points'
 import { formatEuros, parseEuros } from '../money'
+import { addToHistory, MAX_HISTORY, parseHistory } from '../order-history'
 import { deliveredText, deliveredWhatsAppLink, toE164 } from '../whatsapp'
 import { addDays, formatCutoff, orderableDays, parisNow } from '../time'
 
@@ -214,5 +215,17 @@ describe('whatsapp message', () => {
     expect(url.startsWith('https://wa.me/33612345678?text=')).toBe(true)
     expect(decodeURIComponent(url.split('?text=')[1])).toBe(deliveredText(order))
     expect(deliveredWhatsAppLink({ ...order, phone: 'abc' })).toBeNull()
+  })
+})
+
+describe('order history (Mes commandes)', () => {
+  it('keeps only valid codes, newest first, without duplicates', () => {
+    expect(parseHistory(null)).toEqual([])
+    expect(parseHistory('not json')).toEqual([])
+    expect(parseHistory('{"a":1}')).toEqual([])
+    expect(parseHistory('["AB2CD","bad",42,"AB2CD","XY3ZW"]')).toEqual(['AB2CD', 'XY3ZW'])
+    expect(addToHistory(['AB2CD', 'XY3ZW'], 'XY3ZW')).toEqual(['XY3ZW', 'AB2CD'])
+    const many = Array.from({ length: MAX_HISTORY }, (_, i) => `A${String(i).padStart(4, '0')}`)
+    expect(addToHistory(many, 'NEW22')).toHaveLength(MAX_HISTORY)
   })
 })

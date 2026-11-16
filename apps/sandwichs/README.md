@@ -9,6 +9,9 @@ Customers order before the cutoff (10h by default) for the days Bruno opens; the
   `apps/foodtruck/src/models/order.js`, recomputed by the server on every order). Then first name,
   phone, a delivery point picked from a list, payment method chosen at order time. Confirmation
   page `/commande/<code>`.
+- **Mes commandes** `/mes-commandes`: the codes of the orders placed on a phone are kept in its
+  localStorage (`src/lib/order-history.ts`); the page asks `POST /api/commandes/historique` for
+  the current state of those codes only (no accounts, no listing of other orders).
 - **Delivery points** live in `src/lib/delivery-points.ts` (name, address, coordinates). Add an
   entry there to offer a new point; keep existing ids, they are stored on orders.
 - **Bruno's area** `/admin` (password): orders per day with production totals and payment

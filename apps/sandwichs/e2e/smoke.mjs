@@ -158,6 +158,18 @@ try {
     step(`order ${code} placed`)
   })
 
+  await scene(shop, 'Mes commandes', 'Le téléphone du client garde ses commandes', async () => {
+    await shop.getByRole('link', { name: 'Mes commandes' }).click()
+    await shop.waitForURL(/\/mes-commandes$/)
+    const mine = shop.getByRole('link').filter({ hasText: code })
+    await mine.getByText('En préparation').waitFor()
+    if (RECORD) await shop.waitForTimeout(1200)
+    // Only the codes sent are returned; anything else is refused.
+    const bad = await shop.request.post(`${BASE}/api/commandes/historique`, { data: { codes: ['*'] } })
+    if (bad.status() !== 400) throw new Error(`history endpoint accepted a bad code (${bad.status()})`)
+    step('order listed in "Mes commandes" as "En préparation"')
+  })
+
   // --- Bruno sees it and sends it out ---
   await admin.goto(`${BASE}/admin`)
   // Stand-in for WhatsApp: shows the prepared message instead of leaving for wa.me.
@@ -193,6 +205,9 @@ try {
   await scene(shop, 'Le client suit sa commande', 'Le statut passe à « Livrée »', async () => {
     await shop.getByText('Livrée', { exact: true }).waitFor()
     step('customer sees "Livrée"')
+    await shop.goto(`${BASE}/mes-commandes`)
+    await shop.getByRole('link').filter({ hasText: code }).getByText('Livrée').waitFor()
+    step('"Mes commandes" shows it delivered')
   })
   console.log('\nAll good.')
 } catch (err) {

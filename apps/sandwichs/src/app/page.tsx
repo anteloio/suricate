@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Logo } from '@/components/logo'
 import { OrderForm } from '@/components/order-form'
 import { DELIVERY_POINTS } from '@/lib/delivery-points'
@@ -14,6 +15,11 @@ export default async function HomePage() {
 
   return (
     <main className='mx-auto max-w-2xl px-4 pb-40 pt-8'>
+      <nav className='flex justify-end'>
+        <Link href='/mes-commandes' className='btn-secondary'>
+          Mes commandes
+        </Link>
+      </nav>
       <header className='text-center'>
         <Logo className='mx-auto h-16 w-auto' />
         <h1 className='mt-2 font-serif text-2xl tracking-[0.2em] text-brand uppercase'>Nos sandwichs</h1>
