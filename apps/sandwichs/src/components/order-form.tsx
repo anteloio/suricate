@@ -240,7 +240,7 @@ export function OrderForm({
                 onChange={(e) => update('phone', e.target.value)}
               />
             </Field>
-            <Field label='E-mail' hint='Pour la confirmation et quand la commande part en livraison.'>
+            <Field label='E-mail' hint='Pour la confirmation, puis quand la commande est livrée.'>
               <input
                 className='input'
                 required

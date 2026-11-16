@@ -87,13 +87,15 @@ export function confirmationEmail(order: Order, lines: OrderLine[], deliveryWind
   }
 }
 
-export function onTheWayEmail(order: Order): Email {
+/** Sent when Bruno marks the order as delivered. */
+export function deliveredEmail(order: Order): Email {
+  const where = order.addressDetails ? `${order.addressLabel} (${order.addressDetails})` : order.addressLabel
   return {
     to: order.email,
-    subject: `Votre commande ${order.code} est en route !`,
-    text: `Bonjour ${order.customerName},\n\nVotre commande ${order.code} est en route vers ${order.addressLabel}.\nPensez à préparer votre paiement : ${order.paymentMethod}.\n\nBon appétit !\nSuricate`,
+    subject: `Votre commande ${order.code} est arrivée !`,
+    text: `Bonjour ${order.customerName},\n\nVotre commande ${order.code} vient d'être livrée : ${where}.\n\nBon appétit !\nSuricate`,
     html: layout(`<p>Bonjour ${escape(order.customerName)},</p>
-      <p>Votre commande <strong>${order.code}</strong> est en route vers ${escape(order.addressLabel)}.</p>
-      <p>Pensez à préparer votre paiement : <strong>${escape(order.paymentMethod)}</strong>.</p><p>Bon appétit !<br>Suricate</p>`),
+      <p>Votre commande <strong>${order.code}</strong> vient d'être livrée : ${escape(where)}.</p>
+      <p>Bon appétit !<br>Suricate</p>`),
   }
 }

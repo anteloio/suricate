@@ -1,96 +1,179 @@
 // End-to-end smoke test in the locally installed Google Chrome (no browser download).
 // Usage: start the app (npm run dev), then: BASE_URL=http://localhost:3000 ADMIN_PASSWORD=admin node e2e/smoke.mjs
-// Opens the next delivery day as Bruno, places an order as a customer, then dispatches it.
+// Opens the next delivery day as Bruno, places an order as a customer, then marks it delivered.
+//
+// RECORD_DIR=/some/dir  records a narrated demo video instead of running at full speed: slower
+//                       actions, visible cursor and click highlights, a title card per scene. Each
+//                       scene is saved as a .webm, then joined into RECORD_DIR/demo.mp4 (needs ffmpeg).
+// SCREENSHOTS_DIR=/dir  saves full-page screenshots of the main screens.
+import { spawnSync } from 'node:child_process'
+import { mkdirSync } from 'node:fs'
 import { chromium } from 'playwright-core'
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000'
 const PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin'
-const SHOTS = process.env.SCREENSHOTS_DIR // optional: save screenshots there
+const SHOTS = process.env.SCREENSHOTS_DIR
+const RECORD = process.env.RECORD_DIR
 
-const browser = await chromium.launch({ channel: 'chrome', headless: true })
+const ADMIN_VIEWPORT = { width: 1000, height: 900 }
+const PHONE_VIEWPORT = { width: 390, height: 844 }
+
+const browser = await chromium.launch({ channel: 'chrome', headless: true, slowMo: RECORD ? 350 : 0 })
+// Hides the Next.js dev-mode badge so it doesn't appear in recordings.
+const hideDevBadge = (target) =>
+  RECORD &&
+  target.addInitScript(() =>
+    document.addEventListener('DOMContentLoaded', () =>
+      document.head.append(Object.assign(document.createElement('style'), { textContent: 'nextjs-portal{display:none!important}' })),
+    ),
+  )
 const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
 const step = (msg) => console.log(`✓ ${msg}`)
 
+// Types like a person when recording, fills instantly otherwise.
+const type = async (locator, text) => {
+  if (!RECORD) return locator.fill(text)
+  await locator.fill('')
+  await locator.pressSequentially(text, { delay: 45 })
+}
+
+// Runs one scene; when recording, films it into its own clip with a title card.
+const clips = []
+async function scene(page, title, description, fn) {
+  if (!RECORD) return fn()
+  const path = `${RECORD}/${String(clips.length + 1).padStart(2, '0')}.webm`
+  clips.push(path)
+  await page.screencast.start({ path, size: page.viewportSize() })
+  // Cursor + highlight on each click/fill; no action titles (they show raw locators).
+  await page.screencast.showActions({
+    duration: 900,
+    style: {
+      highlight: 'outline: 3px solid #22c55e; border-radius: 10px; background: rgba(34, 197, 94, .12)',
+      title: 'display: none',
+    },
+  })
+  await page.screencast.showChapter(title, { description, duration: 2200 })
+  await page.waitForTimeout(2400)
+  await fn()
+  await page.waitForTimeout(1500)
+  await page.screencast.stop()
+}
+
+// Joins the clips into one mp4, centring each on a common canvas (phone and desktop sizes differ).
+function joinClips() {
+  const out = `${RECORD}/demo.mp4`
+  const { width: W, height: H } = ADMIN_VIEWPORT
+  const scaled = clips.map(
+    (_, i) =>
+      `[${i}:v]fps=25,scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
+      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0xe7e5e4,setsar=1[v${i}]`,
+  )
+  const filter = `${scaled.join(';')};${clips.map((_, i) => `[v${i}]`).join('')}concat=n=${clips.length}:v=1:a=0[out]`
+  const args = ['-y', '-loglevel', 'error', ...clips.flatMap((c) => ['-i', c])]
+  args.push('-filter_complex', filter, '-map', '[out]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '26', '-movflags', '+faststart', out)
+  const res = spawnSync('ffmpeg', args, { stdio: 'inherit' })
+  if (res.error || res.status !== 0) console.warn(`(ffmpeg unavailable or failed: clips are in ${RECORD})`)
+  else console.log(`\n🎬 ${out}`)
+}
+
 try {
+  if (RECORD) mkdirSync(RECORD, { recursive: true })
+
   // --- Bruno opens tomorrow ---
-  const admin = await browser.newPage({ viewport: { width: 1000, height: 900 } })
+  const admin = await browser.newPage({ viewport: ADMIN_VIEWPORT })
+  await hideDevBadge(admin)
   await admin.goto(`${BASE}/admin`)
   await admin.waitForURL('**/admin/login')
-  await admin.fill('input[name=password]', 'wrong')
-  await admin.click('button:has-text("Se connecter")')
-  await admin.getByText('Mot de passe incorrect.').waitFor()
-  await admin.fill('input[name=password]', PASSWORD)
-  await admin.click('button:has-text("Se connecter")')
-  await admin.waitForURL(`${BASE}/admin`)
-  step('admin login')
+  await scene(admin, 'Bruno ouvre une journée', 'Connexion à /admin, puis ouverture de demain', async () => {
+    await type(admin.locator('input[name=password]'), 'wrong')
+    await admin.click('button:has-text("Se connecter")')
+    await admin.getByText('Mot de passe incorrect.').waitFor()
+    await type(admin.locator('input[name=password]'), PASSWORD)
+    await admin.click('button:has-text("Se connecter")')
+    await admin.waitForURL(`${BASE}/admin`)
+    step('admin login')
 
-  await admin.goto(`${BASE}/admin/jours`)
-  const tomorrowRow = admin
-    .locator('li')
-    .filter({ has: admin.locator('form') })
-    .nth(1)
-  if ((await tomorrowRow.locator('button').innerText()).includes('Fermé')) {
-    await tomorrowRow.locator('button').click()
-    await tomorrowRow.getByText('Ouvert ✓').waitFor()
-  }
-  await shot(admin, 'admin-jours')
-  step('tomorrow opened')
+    await admin.getByRole('link', { name: 'Jours' }).click()
+    await admin.waitForURL('**/admin/jours')
+    const tomorrowRow = admin
+      .locator('li')
+      .filter({ has: admin.locator('form') })
+      .nth(1)
+    if ((await tomorrowRow.locator('button').innerText()).includes('Fermé')) {
+      await tomorrowRow.locator('button').click()
+      await tomorrowRow.getByText('Ouvert ✓').waitFor()
+    }
+    await shot(admin, 'admin-jours')
+    step('tomorrow opened')
+  })
 
   // --- Customer orders on a phone ---
-  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  const ctx = await browser.newContext({ viewport: PHONE_VIEWPORT, isMobile: true, hasTouch: true })
+  await hideDevBadge(ctx)
   const shop = await ctx.newPage()
   await shop.goto(BASE)
-  await shot(shop, 'client-menu')
-  await shop.getByRole('button', { name: 'Le Poulet Mayo', exact: true }).click()
-  await shop.getByRole('button', { name: 'Oasis Cassis', exact: true }).click()
-  await shop.getByRole('button', { name: 'Ajouter la formule' }).click()
-  await shop.getByRole('button', { name: '+ Chocolat' }).click()
-  await shop.locator('#panier').getByText('Formule : Le Poulet Mayo + Oasis (Cassis)').waitFor()
-  await shop.locator('#panier').getByText('8,50').waitFor()
-  step('cart: formule + cookie = 8,50 €')
+  let code
+  await scene(shop, 'Un client commande', 'Sur son téléphone : formule, cookie, adresse, paiement', async () => {
+    await shot(shop, 'client-menu')
+    await shop.getByRole('button', { name: 'Le Poulet Mayo', exact: true }).click()
+    await shop.getByRole('button', { name: 'Oasis Cassis', exact: true }).click()
+    await shop.getByRole('button', { name: 'Ajouter la formule' }).click()
+    await shop.getByRole('button', { name: '+ Chocolat' }).click()
+    await shop.locator('#panier').getByText('Formule : Le Poulet Mayo + Oasis (Cassis)').waitFor()
+    await shop.locator('#panier').getByText('8,50').waitFor()
+    step('cart: formule + cookie = 8,50 €')
 
-  await shop.getByLabel('Nom et prénom').fill('Marie Test')
-  await shop.getByLabel('Téléphone').fill('06 12 34 56 78')
-  await shop.getByLabel('E-mail').fill('marie@example.com')
-  await shop.getByLabel('Entreprise (facultatif)').fill('Amadeus')
-  const address = shop.getByRole('combobox')
-  await address.fill('Nice Promenade des Anglais')
-  await shop.getByRole('listbox').getByText('hors zone').first().waitFor({ timeout: 15000 })
-  step('address outside the zone is flagged')
-  await address.fill('2004 route des Lucioles Biot')
-  await shop.getByRole('listbox').getByRole('button').first().waitFor({ timeout: 15000 })
-  await shop
-    .getByRole('listbox')
-    .getByRole('button', { name: /Lucioles/ })
-    .first()
-    .click()
-  await shop.getByLabel('Bâtiment, étage, accueil… (facultatif)').fill('Bât. B, 2e étage')
-  await shop.getByRole('button', { name: 'Ticket Restaurant' }).click()
-  await shot(shop, 'client-checkout')
-  await shop.getByRole('button', { name: 'Commander' }).click()
-  await shop.waitForURL(/\/commande\/[A-Z0-9]{5}\?nouvelle=1/, { timeout: 15000 })
-  await shop.getByText('Votre commande est bien enregistrée').waitFor()
-  const code = shop.url().match(/commande\/([A-Z0-9]{5})/)[1]
-  await shot(shop, 'client-confirmation')
-  step(`order ${code} placed`)
+    await type(shop.getByLabel('Nom et prénom'), 'Marie Test')
+    await type(shop.getByLabel('Téléphone'), '06 12 34 56 78')
+    await type(shop.getByLabel('E-mail'), 'marie@example.com')
+    await type(shop.getByLabel('Entreprise (facultatif)'), 'Amadeus')
+    const address = shop.getByRole('combobox')
+    await type(address, 'Nice Promenade des Anglais')
+    await shop.getByRole('listbox').getByText('hors zone').first().waitFor({ timeout: 15000 })
+    if (RECORD) await shop.waitForTimeout(1200)
+    step('address outside the zone is flagged')
+    await type(address, '2004 route des Lucioles Biot')
+    await shop.getByRole('listbox').getByRole('button').first().waitFor({ timeout: 15000 })
+    await shop
+      .getByRole('listbox')
+      .getByRole('button', { name: /Lucioles/ })
+      .first()
+      .click()
+    await type(shop.getByLabel('Bâtiment, étage, accueil… (facultatif)'), 'Bât. B, 2e étage')
+    await shop.getByRole('button', { name: 'Ticket Restaurant' }).click()
+    await shot(shop, 'client-checkout')
+    await shop.getByRole('button', { name: 'Commander' }).click()
+    await shop.waitForURL(/\/commande\/[A-Z0-9]{5}\?nouvelle=1/, { timeout: 15000 })
+    await shop.getByText('Votre commande est bien enregistrée').waitFor()
+    code = shop.url().match(/commande\/([A-Z0-9]{5})/)[1]
+    await shot(shop, 'client-confirmation')
+    step(`order ${code} placed`)
+  })
 
   // --- Bruno sees it and sends it out ---
   await admin.goto(`${BASE}/admin`)
-  await admin.getByRole('link', { name: 'Demain' }).click()
-  await admin.getByText('Marie Test').waitFor()
-  await admin.getByText('Le Poulet Mayo').first().waitFor()
-  await shot(admin, 'admin-commandes')
-  await admin.getByRole('button', { name: 'En route (e-mail au client)' }).click()
-  await admin.getByText('En route', { exact: true }).waitFor()
-  step('order dispatched by Bruno')
+  await scene(admin, 'Bruno livre la commande', 'Il la marque « livrée » : le client reçoit un e-mail', async () => {
+    await admin.getByRole('link', { name: 'Demain' }).click()
+    // Scope to this run's order: the database may hold orders from earlier runs.
+    const card = admin.locator('li.card').filter({ hasText: code })
+    await card.getByText('Marie Test').waitFor()
+    await card.getByText('Le Poulet Mayo').waitFor()
+    await shot(admin, 'admin-commandes')
+    await card.getByRole('button', { name: 'Livrée (e-mail au client)' }).click()
+    await card.getByText('Livrée', { exact: true }).waitFor()
+    step('order delivered by Bruno')
+  })
 
   await shop.goto(`${BASE}/commande/${code}`)
-  await shop.getByText('En route', { exact: true }).waitFor()
-  step('customer sees "En route"')
+  await scene(shop, 'Le client suit sa commande', 'Le statut passe à « Livrée »', async () => {
+    await shop.getByText('Livrée', { exact: true }).waitFor()
+    step('customer sees "Livrée"')
+  })
   console.log('\nAll good.')
 } catch (err) {
   console.error('\n✗ Smoke test failed:', err.message)
   process.exitCode = 1
 } finally {
   await browser.close()
+  if (RECORD && clips.length) joinClips()
 }

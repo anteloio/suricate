@@ -9,6 +9,7 @@
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",
     "lint": "eslint",
+    "demo": "bash scripts/record-demo.sh",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:generate": "drizzle-kit generate"
   },

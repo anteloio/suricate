@@ -20,3 +20,18 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Admin Server Actions must call `requireAdmin()`; `src/proxy.ts` is only a first check.
 - Before finishing a change: `npm test && npm run typecheck && npm run lint`, and for UI flows
   run `e2e/smoke.mjs` against `npm run dev`.
+- The database schema lives in `drizzle/` migrations. Never edit a migration that has run in
+  production; change `src/lib/db/schema.ts` and add a new one with `npm run db:generate`.
+
+## Show visual changes as a video
+
+The user doesn't read the code. After **any** change that is visible in the UI (customer site,
+admin, emails' links), record the demo and show it in the chat:
+
+1. Update `e2e/smoke.mjs` so the flow covers the change (each `scene(...)` becomes a chapter
+   with a French title card; keep the test passing without `RECORD_DIR`, too).
+2. Run `npm run demo`. It starts a dev server on port 3100 with a fresh, empty database, plays
+   the flow slowly with a visible cursor, and writes `.data/demo/demo.mp4`.
+3. Embed the video in your reply with its absolute path (`![Demo](/abs/path/.data/demo/demo.mp4)`)
+   and say in a few words what it shows. Check a few frames yourself first (e.g.
+   `ffmpeg -i demo.mp4 -vf fps=1/4,scale=400:-1,tile=5x4 -frames:v 1 sheet.png`).

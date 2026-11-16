@@ -6,7 +6,7 @@ import { z } from 'zod'
 z.config(z.locales.fr())
 import { cartItemSchema, priceCart } from './cart'
 import { db, orderLines, orders, PAYMENT_METHODS, type OrderStatus } from './db'
-import { confirmationEmail, onTheWayEmail, sendEmail } from './email'
+import { confirmationEmail, deliveredEmail, sendEmail } from './email'
 import { isInZone } from './geo'
 import { getMenu, getOrderableDays, getSettings } from './queries'
 
@@ -96,15 +96,15 @@ export async function createOrder(raw: unknown): Promise<CreateOrderResult> {
   return { ok: true, code: created.order.code }
 }
 
-/** Changes an order status; moving to "en_route" emails the customer once. */
+/** Changes an order status; the first move to "livree" emails the customer. */
 export async function setOrderStatus(orderId: number, status: OrderStatus) {
   const d = await db()
   const [before] = await d.select().from(orders).where(eq(orders.id, orderId))
   if (!before) return
   const [after] = await d
     .update(orders)
-    .set({ status, dispatchedAt: status === 'en_route' && !before.dispatchedAt ? new Date() : before.dispatchedAt })
+    .set({ status, deliveredAt: status === 'livree' && !before.deliveredAt ? new Date() : before.deliveredAt })
     .where(eq(orders.id, orderId))
     .returning()
-  if (status === 'en_route' && !before.dispatchedAt) await sendEmail(onTheWayEmail(after))
+  if (status === 'livree' && !before.deliveredAt) await sendEmail(deliveredEmail(after))
 }

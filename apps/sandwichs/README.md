@@ -7,7 +7,7 @@ Customers order before the cutoff (10h by default) for the days Bruno opens; the
   address with autocomplete (French government address API) restricted to a radius around
   Sophia Antipolis, payment method chosen at order time. Confirmation page `/commande/<code>`.
 - **Bruno's area** `/admin` (password): orders per day with production totals and payment
-  breakdown, "en route" button (emails the customer), days to open, menu editor, settings
+  breakdown, "livrée" button (emails the customer that the order has arrived), days to open, menu editor, settings
   (cutoff, delivery window, formule price, minimum order, zone radius).
 
 Stack: Next.js 16 (App Router) · TypeScript · Tailwind 4 · Drizzle ORM · Postgres
@@ -29,6 +29,7 @@ npm test             # unit tests (pricing, cutoff/timezone, zone)
 npm run typecheck
 npm run lint
 BASE_URL=http://localhost:3000 node e2e/smoke.mjs   # full flow in local Chrome
+npm run demo                                     # same flow recorded as .data/demo/demo.mp4
 ```
 
 ## Database changes

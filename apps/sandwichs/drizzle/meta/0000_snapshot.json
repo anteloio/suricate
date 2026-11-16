@@ -1,5 +1,5 @@
 {
-  "id": "e3e48848-fc30-4ba6-9218-cf9ba7a2fa75",
+  "id": "17d4bc92-39f0-4ac9-b44d-25f9b75cc8a1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -208,8 +208,8 @@
           "notNull": true,
           "default": "now()"
         },
-        "dispatched_at": {
-          "name": "dispatched_at",
+        "delivered_at": {
+          "name": "delivered_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false

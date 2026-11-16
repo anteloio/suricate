@@ -5,17 +5,15 @@ import type { OrderStatus } from '@/lib/db/schema'
 import { formatEuros } from '@/lib/money'
 import { getOrdersForDay, getRecentOrderDays, getSettings, getUpcomingOpenDays } from '@/lib/queries'
 import { formatCutoff, formatDay, parisNow, relativeDay } from '@/lib/time'
-import { changeOrderStatus, dispatchAll } from '../actions'
+import { changeOrderStatus } from '../actions'
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
   confirmee: 'À préparer',
-  en_route: 'En route',
   livree: 'Livrée',
   annulee: 'Annulée',
 }
 const STATUS_CLASS: Record<OrderStatus, string> = {
   confirmee: 'bg-amber-100 text-amber-900',
-  en_route: 'bg-blue-100 text-blue-900',
   livree: 'bg-green-100 text-green-900',
   annulee: 'bg-red-100 text-red-900 line-through',
 }
@@ -44,7 +42,6 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
   const byPayment = new Map<string, number>()
   for (const { order } of active)
     byPayment.set(order.paymentMethod, (byPayment.get(order.paymentMethod) ?? 0) + order.totalCents)
-  const toDispatch = active.filter((o) => o.order.status === 'confirmee').length
 
   const isOpen = openDays.includes(date)
   const stillOrdering = isOpen && (date > now.date || (date === now.date && now.minutes < settings.cutoffMinutes))
@@ -87,13 +84,7 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
       )}
 
       {dayOrders.length > 0 && (
-        <div className='no-print flex flex-wrap gap-2'>
-          {toDispatch > 0 && (
-            <form action={dispatchAll}>
-              <input type='hidden' name='date' value={date} />
-              <button className='btn-primary'>Tout passer en route ({toDispatch}) : e-mail aux clients</button>
-            </form>
-          )}
+        <div className='no-print'>
           <PrintButton />
         </div>
       )}
@@ -155,22 +146,22 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
                 {order.notes && <p className='rounded-lg bg-amber-50 px-2 py-1'>💬 {order.notes}</p>}
               </div>
               <div className='no-print mt-3 flex flex-wrap gap-2'>
-                {(['en_route', 'livree', 'confirmee', 'annulee'] as const)
+                {(['livree', 'confirmee', 'annulee'] as const)
                   .filter((s) => s !== order.status)
                   .map((s) => (
                     <form key={s} action={changeOrderStatus}>
                       <input type='hidden' name='orderId' value={order.id} />
                       <input type='hidden' name='status' value={s} />
-                      <button className='btn-secondary'>
-                        {s === 'en_route'
-                          ? order.dispatchedAt
-                            ? 'Remettre en route'
-                            : 'En route (e-mail au client)'
-                          : s === 'livree'
+                      <button
+                        className={`btn-secondary ${s === 'livree' && !order.deliveredAt ? 'border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700' : ''}`}
+                      >
+                        {s === 'livree'
+                          ? order.deliveredAt
                             ? 'Livrée'
-                            : s === 'confirmee'
-                              ? 'Remettre à préparer'
-                              : 'Annuler'}
+                            : 'Livrée (e-mail au client)'
+                          : s === 'confirmee'
+                            ? 'Remettre à préparer'
+                            : 'Annuler'}
                       </button>
                     </form>
                   ))}

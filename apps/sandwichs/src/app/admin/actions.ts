@@ -8,7 +8,6 @@ import {
   CATEGORIES,
   db,
   ORDER_STATUSES,
-  orders,
   products,
   serviceDays,
   settings,
@@ -51,19 +50,6 @@ export async function changeOrderStatus(formData: FormData) {
   const status = String(formData.get('status')) as OrderStatus
   if (!ORDER_STATUSES.includes(status)) return
   await setOrderStatus(Number(formData.get('orderId')), status)
-  revalidatePath('/admin', 'layout')
-}
-
-/** "Tout passer en route": every confirmed order of the day, one email each. */
-export async function dispatchAll(formData: FormData) {
-  await requireAdmin()
-  const date = String(formData.get('date'))
-  const d = await db()
-  const confirmed = await d
-    .select({ id: orders.id, status: orders.status })
-    .from(orders)
-    .where(eq(orders.serviceDate, date))
-  for (const o of confirmed) if (o.status === 'confirmee') await setOrderStatus(o.id, 'en_route')
   revalidatePath('/admin', 'layout')
 }
 

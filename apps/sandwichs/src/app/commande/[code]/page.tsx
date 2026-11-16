@@ -8,7 +8,6 @@ export const dynamic = 'force-dynamic'
 
 const STATUS: Record<string, { label: string; className: string }> = {
   confirmee: { label: 'Confirmée', className: 'bg-neutral-100 text-neutral-800' },
-  en_route: { label: 'En route', className: 'bg-green-100 text-green-800' },
   livree: { label: 'Livrée', className: 'bg-green-100 text-green-800' },
   annulee: { label: 'Annulée', className: 'bg-red-100 text-red-800' },
 }
@@ -65,9 +64,11 @@ export default async function OrderPage({ params, searchParams }: PageProps<'/co
         </div>
         <p className='text-sm text-neutral-600'>Paiement à la livraison : {order.paymentMethod}</p>
       </section>
-      <p className='mt-6 text-center text-sm text-neutral-500'>
-        Vous recevrez un e-mail quand votre commande partira en livraison.
-      </p>
+      {order.status === 'confirmee' && (
+        <p className='mt-6 text-center text-sm text-neutral-500'>
+          Vous recevrez un e-mail dès que votre commande sera livrée.
+        </p>
+      )}
     </main>
   )
 }

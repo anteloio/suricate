@@ -6,7 +6,7 @@ export type Category = (typeof CATEGORIES)[number]
 export const PAYMENT_METHODS = ['CB', 'Espèces', 'Ticket Restaurant'] as const
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 
-export const ORDER_STATUSES = ['confirmee', 'en_route', 'livree', 'annulee'] as const
+export const ORDER_STATUSES = ['confirmee', 'livree', 'annulee'] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 
 export const products = pgTable('products', {
@@ -59,7 +59,7 @@ export const orders = pgTable('orders', {
   notes: text('notes').notNull().default(''),
   totalCents: integer('total_cents').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  dispatchedAt: timestamp('dispatched_at', { withTimezone: true }),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
 })
 
 export const orderLines = pgTable('order_lines', {

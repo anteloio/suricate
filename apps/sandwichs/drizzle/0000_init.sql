@@ -30,7 +30,7 @@ CREATE TABLE "orders" (
 	"notes" text DEFAULT '' NOT NULL,
 	"total_cents" integer NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"dispatched_at" timestamp with time zone,
+	"delivered_at" timestamp with time zone,
 	CONSTRAINT "orders_code_unique" UNIQUE("code")
 );
 --> statement-breakpoint
