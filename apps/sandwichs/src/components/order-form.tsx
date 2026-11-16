@@ -2,7 +2,15 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { cartItemKey, MAX_QUANTITY, priceCart, type CartItem, type MenuProduct, type PricingRules } from '@/lib/cart'
+import {
+  cartItemKey,
+  cartItemSchema,
+  MAX_QUANTITY,
+  priceCart,
+  type CartItem,
+  type MenuProduct,
+  type PricingRules,
+} from '@/lib/cart'
 import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/db/schema'
 import { type DeliveryPoint } from '@/lib/delivery-points'
 import { formatEuros } from '@/lib/money'
@@ -76,9 +84,15 @@ export function OrderForm({
       }
       const savedCart = localStorage.getItem(CART_KEY)
       if (savedCart) {
-        const items = JSON.parse(savedCart) as CartItem[]
-        // Drop items that no longer exist on the menu.
-        setCart(items.filter((item) => priceCart([item], menu, { ...rules, minOrderCents: 0 }).ok))
+        const items = JSON.parse(savedCart) as unknown[]
+        // Drop items that no longer exist on the menu (or older cart formats).
+        setCart(
+          items
+            .map((item) => cartItemSchema.safeParse(item))
+            .filter((r) => r.success)
+            .map((r) => r.data)
+            .filter((item) => priceCart([item], menu, { ...rules, minOrderCents: 0 }).ok)
+        )
       }
     } catch {
       // Corrupted storage: start fresh.
@@ -93,24 +107,21 @@ export function OrderForm({
   const priced = useMemo(() => priceCart(cart, menu, rules), [cart, menu, rules])
   const itemCount = cart.reduce((n, i) => n + i.quantity, 0)
 
-  const add = (item: CartItem) => {
+  const quantities = useMemo(() => new Map(cart.map((i) => [cartItemKey(i), i.quantity])), [cart])
+
+  /** The +/- counters on the menu: the cart only holds products and quantities. */
+  const changeQuantity = (productId: number, variant: string | null, delta: number) => {
     setError(null)
     setCart((current) => {
-      const key = cartItemKey(item)
+      const key = cartItemKey({ productId, variant })
       const existing = current.find((i) => cartItemKey(i) === key)
-      if (!existing) return [...current, item]
-      return current.map((i) =>
-        i === existing ? { ...i, quantity: Math.min(MAX_QUANTITY, i.quantity + item.quantity) } : i
-      )
+      const quantity = Math.max(0, Math.min(MAX_QUANTITY, (existing?.quantity ?? 0) + delta))
+      if (!existing) return quantity > 0 ? [...current, { productId, variant, quantity }] : current
+      return quantity > 0
+        ? current.map((i) => (i === existing ? { ...i, quantity } : i))
+        : current.filter((i) => i !== existing)
     })
   }
-
-  const changeQuantity = (index: number, delta: number) =>
-    setCart((current) =>
-      current
-        .map((item, i) => (i === index ? { ...item, quantity: Math.min(MAX_QUANTITY, item.quantity + delta) } : item))
-        .filter((item) => item.quantity > 0)
-    )
 
   const update = <K extends keyof Customer>(key: K, value: Customer[K]) => setCustomer((c) => ({ ...c, [key]: value }))
 
@@ -171,51 +182,44 @@ export function OrderForm({
         </p>
       )}
 
-      <FormuleBuilder
-        sandwiches={sandwiches.filter((s) => s.formulaEligible)}
-        drinks={drinks}
-        price={rules.formulePriceCents}
-        onAdd={add}
-      />
+      {rules.formulePriceCents > 0 && sandwiches.some((p) => p.formulaEligible) && drinks.length > 0 && (
+        <p className='rounded-xl bg-white px-4 py-3 text-center text-neutral-700 ring-2 ring-formule'>
+          <strong className='text-formule-dark'>Formule {formatEuros(rules.formulePriceCents)}</strong> : un sandwich*
+          et une boisson. Ajoutez-les simplement, la remise s’applique toute seule.
+        </p>
+      )}
 
-      <ProductSection title='Sandwichs' products={sandwiches} onAdd={add} />
-      <ProductSection title='Boissons' products={drinks} onAdd={add} />
-      <ProductSection title='Desserts' products={desserts} onAdd={add} />
+      <ProductSection title='Sandwichs' products={sandwiches} quantities={quantities} onChange={changeQuantity} />
+      <ProductSection title='Boissons' products={drinks} quantities={quantities} onChange={changeQuantity} />
+      <ProductSection title='Desserts' products={desserts} quantities={quantities} onChange={changeQuantity} />
 
       <section id='panier'>
         <h2 className='section-title'>Votre commande</h2>
         {cart.length === 0 ? (
-          <p className='mt-3 text-neutral-500'>Votre panier est vide.</p>
+          <p className='mt-3 text-neutral-500'>Votre panier est vide : utilisez les boutons + du menu.</p>
         ) : (
           <ul className='mt-3 divide-y divide-neutral-200 rounded-2xl bg-white ring-1 ring-neutral-200'>
-            {priced.lines.map((line, index) => (
-              <li key={cartItemKey(cart[index])} className='flex items-center gap-3 px-4 py-3'>
-                <div className='flex-1'>
-                  <p className='font-medium'>{line.label}</p>
-                  <p className='text-sm text-neutral-500'>{formatEuros(line.unitPriceCents)}</p>
-                </div>
-                <div className='flex items-center gap-2'>
-                  <button
-                    type='button'
-                    className='qty'
-                    aria-label='Retirer un'
-                    onClick={() => changeQuantity(index, -1)}
-                  >
-                    −
-                  </button>
-                  <span className='w-5 text-center tabular-nums'>{line.quantity}</span>
-                  <button
-                    type='button'
-                    className='qty'
-                    aria-label='Ajouter un'
-                    onClick={() => changeQuantity(index, 1)}
-                  >
-                    +
-                  </button>
-                </div>
-                <p className='w-20 text-right tabular-nums'>{formatEuros(line.quantity * line.unitPriceCents)}</p>
+            {priced.lines.map((line) => (
+              <li
+                key={`${line.kind}:${line.productId}:${line.variant}:${line.drinkId}:${line.drinkVariant}`}
+                className='flex items-center gap-3 px-4 py-3'
+              >
+                <p className={`flex-1 ${line.kind === 'formule' ? 'font-medium text-formule-dark' : ''}`}>
+                  {line.quantity} × {line.label}
+                </p>
+                <p className='tabular-nums'>{formatEuros(line.quantity * line.unitPriceCents)}</p>
               </li>
             ))}
+            {priced.formulaDiscountCents > 0 && (
+              <li className='flex justify-between px-4 py-3 text-formule-dark'>
+                <span>
+                  Remise formule{priced.formulaCount > 1 ? ` (× ${priced.formulaCount})` : ''}
+                </span>
+                <span className='tabular-nums'>
+                  économisé {formatEuros(priced.formulaDiscountCents)}
+                </span>
+              </li>
+            )}
             <li className='flex justify-between px-4 py-3 text-lg font-semibold'>
               <span>Total</span>
               <span className='tabular-nums'>{formatEuros(priced.totalCents)}</span>
@@ -325,7 +329,12 @@ export function OrderForm({
               <p className='font-semibold'>
                 {itemCount} article{itemCount > 1 ? 's' : ''} · {formatEuros(priced.totalCents)}
               </p>
-              <p className='text-neutral-500'>Commandez avant {cutoff}</p>
+              <p className='text-neutral-500'>
+                {priced.formulaCount > 0
+                  ? `Formule${priced.formulaCount > 1 ? 's' : ''} appliquée${priced.formulaCount > 1 ? 's' : ''} · `
+                  : ''}
+                Commandez avant {cutoff}
+              </p>
             </div>
             {cart.length > 0 && (
               <button type='submit' disabled={submitting} className='btn-primary'>
@@ -349,21 +358,21 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   )
 }
 
-/** One button per flavor when the product has variants (e.g. "Oasis Pomme"). */
+/** One counter per flavor when the product has variants (e.g. "Oasis · Cassis"). */
 function choices(product: MenuProduct) {
-  return product.variants.length
-    ? product.variants.map((v) => ({ variant: v, label: `${product.name} ${v}` }))
-    : [{ variant: null, label: product.name }]
+  return product.variants.length ? product.variants : [null]
 }
 
 function ProductSection({
   title,
   products,
-  onAdd,
+  quantities,
+  onChange,
 }: {
   title: string
   products: MenuProduct[]
-  onAdd: (item: CartItem) => void
+  quantities: Map<string, number>
+  onChange: (productId: number, variant: string | null, delta: number) => void
 }) {
   if (products.length === 0) return null
   return (
@@ -379,21 +388,30 @@ function ProductSection({
                   {p.formulaEligible && <span className='ml-1 text-formule-dark'>*</span>}
                 </p>
                 {p.description && <p className='text-sm text-neutral-500'>{p.description}</p>}
+                <p className='mt-1 font-semibold tabular-nums'>{formatEuros(p.priceCents)}</p>
               </div>
-              <p className='shrink-0 font-semibold tabular-nums'>{formatEuros(p.priceCents)}</p>
+              {p.variants.length === 0 && (
+                <Counter
+                  name={p.name}
+                  quantity={quantities.get(cartItemKey({ productId: p.id, variant: null })) ?? 0}
+                  onChange={(delta) => onChange(p.id, null, delta)}
+                />
+              )}
             </div>
-            <div className='mt-2 flex flex-wrap gap-2'>
-              {choices(p).map((c) => (
-                <button
-                  key={c.label}
-                  type='button'
-                  className='chip'
-                  onClick={() => onAdd({ type: 'produit', productId: p.id, variant: c.variant, quantity: 1 })}
-                >
-                  + {p.variants.length ? c.variant : 'Ajouter'}
-                </button>
-              ))}
-            </div>
+            {p.variants.length > 0 && (
+              <ul className='mt-2 space-y-2'>
+                {choices(p).map((variant) => (
+                  <li key={variant} className='flex items-center justify-between gap-4 pl-3'>
+                    <span className='text-neutral-700'>{variant}</span>
+                    <Counter
+                      name={`${p.name} ${variant}`}
+                      quantity={quantities.get(cartItemKey({ productId: p.id, variant })) ?? 0}
+                      onChange={(delta) => onChange(p.id, variant, delta)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
           </li>
         ))}
       </ul>
@@ -401,75 +419,32 @@ function ProductSection({
   )
 }
 
-function FormuleBuilder({
-  sandwiches,
-  drinks,
-  price,
-  onAdd,
-}: {
-  sandwiches: MenuProduct[]
-  drinks: MenuProduct[]
-  price: number
-  onAdd: (item: CartItem) => void
-}) {
-  const [sandwichId, setSandwichId] = useState<number | null>(null)
-  const [drink, setDrink] = useState<{ id: number; variant: string | null } | null>(null)
-  const [added, setAdded] = useState(false)
-  if (sandwiches.length === 0 || drinks.length === 0) return null
-
-  const drinkChoices = drinks.flatMap((d) => choices(d).map((c) => ({ ...c, id: d.id })))
-
+/** Uber Eats-style counter: a single "+" until the item is in the cart, then − n +. */
+function Counter({ name, quantity, onChange }: { name: string; quantity: number; onChange: (delta: number) => void }) {
+  if (quantity === 0) {
+    return (
+      <button type='button' className='qty shrink-0' aria-label={`Ajouter ${name}`} onClick={() => onChange(1)}>
+        +
+      </button>
+    )
+  }
   return (
-    <section className='rounded-2xl bg-white p-4 ring-2 ring-formule'>
-      <div className='flex items-baseline justify-between'>
-        <h2 className='section-title text-formule-dark'>Formule</h2>
-        <p className='text-xl font-semibold tabular-nums'>{formatEuros(price)}</p>
-      </div>
-      <p className='text-neutral-600'>Un sandwich* et une boisson au choix.</p>
-
-      <p className='label mt-4'>1. Le sandwich</p>
-      <div className='mt-2 flex flex-wrap gap-2'>
-        {sandwiches.map((s) => (
-          <button
-            key={s.id}
-            type='button'
-            className={`chip ${sandwichId === s.id ? 'chip-formule' : ''}`}
-            onClick={() => setSandwichId(s.id)}
-          >
-            {s.name}
-          </button>
-        ))}
-      </div>
-
-      <p className='label mt-4'>2. La boisson</p>
-      <div className='mt-2 flex flex-wrap gap-2'>
-        {drinkChoices.map((c) => (
-          <button
-            key={c.label}
-            type='button'
-            className={`chip ${drink?.id === c.id && drink.variant === c.variant ? 'chip-formule' : ''}`}
-            onClick={() => setDrink({ id: c.id, variant: c.variant })}
-          >
-            {c.label}
-          </button>
-        ))}
-      </div>
-
+    <div className='flex shrink-0 items-center gap-2'>
+      <button type='button' className='qty' aria-label={`Retirer ${name}`} onClick={() => onChange(-1)}>
+        −
+      </button>
+      <span className='w-5 text-center font-semibold tabular-nums' aria-label={`Quantité ${name}`}>
+        {quantity}
+      </span>
       <button
         type='button'
-        disabled={!sandwichId || !drink}
-        className='btn-formule mt-4 w-full'
-        onClick={() => {
-          if (!sandwichId || !drink) return
-          onAdd({ type: 'formule', sandwichId, drinkId: drink.id, drinkVariant: drink.variant, quantity: 1 })
-          setSandwichId(null)
-          setDrink(null)
-          setAdded(true)
-          setTimeout(() => setAdded(false), 1500)
-        }}
+        className='qty'
+        aria-label={`Ajouter ${name}`}
+        disabled={quantity >= MAX_QUANTITY}
+        onClick={() => onChange(1)}
       >
-        {added ? 'Ajoutée ✓' : 'Ajouter la formule'}
+        +
       </button>
-    </section>
+    </div>
   )
 }

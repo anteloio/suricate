@@ -48,17 +48,11 @@ body {
   .chip-selected {
     @apply border-neutral-900 bg-neutral-900 text-white;
   }
-  .chip-formule {
-    @apply border-formule-dark bg-formule text-white;
-  }
   .qty {
-    @apply flex size-8 items-center justify-center rounded-full border border-neutral-300 text-lg leading-none hover:border-neutral-900;
+    @apply flex size-10 items-center justify-center rounded-full border border-neutral-300 bg-white text-xl leading-none hover:border-neutral-900 disabled:opacity-40;
   }
   .btn-primary {
     @apply rounded-full bg-neutral-900 px-6 py-3 font-semibold text-white transition hover:bg-neutral-700 disabled:opacity-50;
-  }
-  .btn-formule {
-    @apply rounded-full bg-formule px-6 py-3 font-semibold text-white transition hover:bg-formule-dark disabled:opacity-40;
   }
   .btn-secondary {
     @apply rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium transition hover:border-neutral-900 disabled:opacity-50;

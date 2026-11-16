@@ -15,7 +15,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
   `npm install` at the root and must not install Next.js. Run npm commands inside `apps/sandwichs`.
 - `cacheComponents` is off on purpose; pages are `force-dynamic` and always read fresh data.
 - All date/time rules use Europe/Paris (`src/lib/time.ts`); the server runs in UTC.
-- Prices are integer cents. `src/lib/cart.ts` (`priceCart`) is the single source of truth for
+- Prices are integer cents. `src/lib/cart.ts` (`priceCart`, which also detects formules) is the single source of truth for
   pricing and runs on both client and server; the server re-validates every order.
 - Admin Server Actions must call `requireAdmin()`; `src/proxy.ts` is only a first check.
 - Before finishing a change: `npm test && npm run typecheck && npm run lint`, and for UI flows

@@ -3,7 +3,10 @@
 Online sandwich pre-orders for Bruno, delivered at lunch to fixed delivery points.
 Customers order before the cutoff (10h by default) for the days Bruno opens; they pay on delivery.
 
-- **Customer site** `/`: formule builder (sandwich* + drink), à-la-carte items, cart, first name,
+- **Customer site** `/`: menu with a +/− counter on every item (Uber Eats style); the formule
+  (sandwich* + drink at the formule price) is applied automatically, as many times as it saves
+  money, by `priceCart` in `src/lib/cart.ts` (same greedy rule as the food truck's
+  `apps/foodtruck/src/models/order.js`, recomputed by the server on every order). Then first name,
   phone, a delivery point picked from a list, payment method chosen at order time. Confirmation
   page `/commande/<code>`.
 - **Delivery points** live in `src/lib/delivery-points.ts` (name, address, coordinates). Add an

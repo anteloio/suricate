@@ -69,57 +69,73 @@ const menu: MenuProduct[] = [
 ]
 const rules = { formulePriceCents: 650, minOrderCents: 650 }
 
+const item = (productId: number, quantity = 1, variant?: string) => ({ productId, variant, quantity })
+
 describe('priceCart', () => {
-  it('prices a formule at the formule price, whatever the drink', () => {
-    const r = priceCart(
-      [{ type: 'formule', sandwichId: 2, drinkId: 4, drinkVariant: 'Cassis', quantity: 2 }],
-      menu,
-      rules
-    )
+  it('applies the formule automatically to an eligible sandwich + a drink', () => {
+    const r = priceCart([item(2), item(4, 1, 'Cassis')], menu, rules)
     expect(r.ok).toBe(true)
-    expect(r.totalCents).toBe(1300)
-    expect(r.lines[0].label).toBe('Formule : Poulet Mayo + Oasis (Cassis)')
+    expect(r.subtotalCents).toBe(750)
+    expect(r.totalCents).toBe(650)
+    expect(r.formulaDiscountCents).toBe(100)
+    expect(r.formulaCount).toBe(1)
+    expect(r.lines).toHaveLength(1)
+    expect(r.lines[0]).toMatchObject({ kind: 'formule', label: 'Formule : Poulet Mayo + Oasis (Cassis)', quantity: 1 })
   })
 
-  it('refuses the jambon beurre in a formule', () => {
-    const r = priceCart([{ type: 'formule', sandwichId: 1, drinkId: 3, quantity: 1 }], menu, rules)
-    expect(r).toMatchObject({ ok: false, error: 'Jambon beurre ne fait pas partie de la formule.' })
+  it('makes as many formules as possible and leaves the rest at their own price', () => {
+    // 3 Poulet Mayo, 2 Oasis, 1 Eau: 3 formules (5,50 + 2,00 and 5,50 + 1,50 still beat 6,50)
+    const r = priceCart([item(2, 3), item(4, 2, 'Pomme'), item(3), item(5, 1, 'Chocolat')], menu, rules)
+    expect(r.formulaCount).toBe(3)
+    expect(r.totalCents).toBe(3 * 650 + 200)
+    expect(r.lines.map((l) => [l.label, l.quantity])).toEqual([
+      ['Formule : Poulet Mayo + Oasis (Pomme)', 2],
+      ['Formule : Poulet Mayo + Eau', 1],
+      ['Cookie (Chocolat)', 1],
+    ])
+  })
+
+  it('pairs the most expensive drinks first (best price) and never depends on the cart order', () => {
+    const a = priceCart([item(3), item(2), item(4, 1, 'Pomme'), item(2)], menu, rules)
+    const b = priceCart([item(2, 2), item(4, 1, 'Pomme'), item(3)], menu, rules)
+    expect(a.totalCents).toBe(1300)
+    expect(a.lines).toEqual(b.lines)
+  })
+
+  it('keeps the jambon beurre out of the formule', () => {
+    const r = priceCart([item(1, 2), item(3)], menu, rules)
+    expect(r.formulaCount).toBe(0)
+    expect(r.totalCents).toBe(850)
+  })
+
+  it('never applies a formule that would cost more', () => {
+    const r = priceCart([item(2), item(3)], menu, { ...rules, formulePriceCents: 800 })
+    expect(r.formulaCount).toBe(0)
+    expect(r.totalCents).toBe(700)
   })
 
   it('requires a valid flavor when the product has variants', () => {
-    expect(priceCart([{ type: 'formule', sandwichId: 2, drinkId: 4, quantity: 1 }], menu, rules).ok).toBe(false)
-    expect(priceCart([{ type: 'produit', productId: 5, variant: 'Fraise', quantity: 4 }], menu, rules).ok).toBe(false)
-    expect(priceCart([{ type: 'produit', productId: 3, variant: 'Pomme', quantity: 5 }], menu, rules).ok).toBe(false)
+    expect(priceCart([item(2), item(4)], menu, rules).ok).toBe(false)
+    expect(priceCart([item(5, 4, 'Fraise')], menu, rules).ok).toBe(false)
+    expect(priceCart([item(3, 5, 'Pomme')], menu, rules).ok).toBe(false)
   })
 
   it('enforces the minimum order', () => {
-    const r = priceCart([{ type: 'produit', productId: 1, quantity: 1 }], menu, rules)
-    expect(r).toMatchObject({ ok: false, error: 'Commande minimum : 6,50 €.' })
-    expect(priceCart([{ type: 'produit', productId: 1, quantity: 2 }], menu, rules).ok).toBe(true)
+    const r = priceCart([item(1)], menu, rules)
+    expect(r).toMatchObject({ ok: false, error: `Commande minimum : ${formatEuros(650)}.` })
+    expect(priceCart([item(1, 2)], menu, rules).ok).toBe(true)
   })
 
   it('rejects inactive or unknown products and an empty cart', () => {
     expect(priceCart([], menu, rules).ok).toBe(false)
-    expect(priceCart([{ type: 'produit', productId: 6, quantity: 2 }], menu, rules).ok).toBe(false)
-    expect(priceCart([{ type: 'produit', productId: 99, quantity: 2 }], menu, rules).ok).toBe(false)
-  })
-
-  it('a formule with water is cheaper than separately (5,50 + 1,50 = 7,00)', () => {
-    expect(priceCart([{ type: 'formule', sandwichId: 2, drinkId: 3, quantity: 1 }], menu, rules).totalCents).toBe(650)
+    expect(priceCart([item(6, 2)], menu, rules).ok).toBe(false)
+    expect(priceCart([item(99, 2)], menu, rules).ok).toBe(false)
   })
 })
 
 describe('productionTotals', () => {
   it('counts sandwiches and drinks inside formules', () => {
-    const r = priceCart(
-      [
-        { type: 'formule', sandwichId: 2, drinkId: 4, drinkVariant: 'Pomme', quantity: 2 },
-        { type: 'produit', productId: 2, quantity: 1 },
-        { type: 'produit', productId: 4, variant: 'Pomme', quantity: 1 },
-      ],
-      menu,
-      rules
-    )
+    const r = priceCart([item(2, 3), item(4, 3, 'Pomme')], menu, rules)
     expect(productionTotals(r.lines)).toEqual([
       { name: 'Oasis (Pomme)', quantity: 3 },
       { name: 'Poulet Mayo', quantity: 3 },

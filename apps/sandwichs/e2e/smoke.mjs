@@ -113,15 +113,34 @@ try {
   const shop = await ctx.newPage()
   await shop.goto(BASE)
   let code
-  await scene(shop, 'Un client commande', 'Sur son téléphone : formule, cookie, point de livraison, paiement', async () => {
+  await scene(shop, 'Un client commande', 'Il ajoute ses articles avec les + : la formule se fait toute seule', async () => {
     await shot(shop, 'client-menu')
-    await shop.getByRole('button', { name: 'Le Poulet Mayo', exact: true }).click()
-    await shop.getByRole('button', { name: 'Oasis Cassis', exact: true }).click()
-    await shop.getByRole('button', { name: 'Ajouter la formule' }).click()
-    await shop.getByRole('button', { name: '+ Chocolat' }).click()
-    await shop.locator('#panier').getByText('Formule : Le Poulet Mayo + Oasis (Cassis)').waitFor()
-    await shop.locator('#panier').getByText('8,50').waitFor()
-    step('cart: formule + cookie = 8,50 €')
+    const panier = shop.locator('#panier')
+    await shop.getByRole('button', { name: 'Ajouter Le Poulet Mayo', exact: true }).click()
+    await shop.getByRole('button', { name: 'Ajouter Oasis Cassis', exact: true }).click()
+    await shop.getByRole('button', { name: 'Ajouter Cookie maison Chocolat', exact: true }).click()
+    await panier.getByText('1 × Formule : Le Poulet Mayo + Oasis (Cassis)').waitFor()
+    await panier.getByText('Remise formule').waitFor()
+    await panier.getByText('8,50').waitFor()
+    step('formule applied automatically: Poulet Mayo + Oasis + cookie = 8,50 €')
+
+    // A second sandwich alone is at its own price, until a drink joins it.
+    await shop.getByRole('button', { name: 'Ajouter Le Poulet Mayo', exact: true }).click()
+    await shop.getByLabel('Quantité Le Poulet Mayo').getByText('2').waitFor()
+    await panier.getByText('14,00').waitFor()
+    await shop.getByRole('button', { name: 'Ajouter Eau minérale', exact: true }).click()
+    await panier.getByText('1 × Formule : Le Poulet Mayo + Eau minérale').waitFor()
+    await panier.getByText('Remise formule (× 2)').waitFor()
+    await panier.getByText('15,00').waitFor()
+    if (RECORD) await shop.waitForTimeout(1200)
+    step('second formule with water: 15,00 €')
+
+    // Removing the water drops back to one formule.
+    await shop.getByRole('button', { name: 'Retirer Eau minérale', exact: true }).click()
+    await panier.getByText('14,00').waitFor()
+    await shop.getByRole('button', { name: 'Ajouter Eau minérale', exact: true }).click()
+    await panier.getByText('15,00').waitFor()
+    step('counters: − / + update the formules')
 
     await type(shop.getByLabel('Prénom'), 'Marie')
     await type(shop.getByLabel('Téléphone'), '06 12 34 56 78')
@@ -157,7 +176,7 @@ try {
     const card = admin.locator('li.card').filter({ hasText: code })
     await card.getByText('Marie', { exact: true }).waitFor()
     await card.getByText(/Crédit Agricole Saint-Laurent-du-Var/).waitFor()
-    await card.getByText('Le Poulet Mayo').waitFor()
+    await card.getByText('Formule : Le Poulet Mayo + Eau minérale').waitFor()
     await shot(admin, 'admin-commandes')
     await card.getByRole('button', { name: 'Livrée (WhatsApp au client)' }).click()
     await admin.waitForURL(/^https:\/\/wa\.me\/33612345678\?text=/, { timeout: 15000 })
