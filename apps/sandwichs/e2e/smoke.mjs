@@ -113,7 +113,7 @@ try {
   const shop = await ctx.newPage()
   await shop.goto(BASE)
   let code
-  await scene(shop, 'Un client commande', 'Sur son téléphone : formule, cookie, adresse, paiement', async () => {
+  await scene(shop, 'Un client commande', 'Sur son téléphone : formule, cookie, point de livraison, paiement', async () => {
     await shot(shop, 'client-menu')
     await shop.getByRole('button', { name: 'Le Poulet Mayo', exact: true }).click()
     await shop.getByRole('button', { name: 'Oasis Cassis', exact: true }).click()
@@ -123,23 +123,12 @@ try {
     await shop.locator('#panier').getByText('8,50').waitFor()
     step('cart: formule + cookie = 8,50 €')
 
-    await type(shop.getByLabel('Nom et prénom'), 'Marie Test')
+    await type(shop.getByLabel('Prénom'), 'Marie')
     await type(shop.getByLabel('Téléphone'), '06 12 34 56 78')
-    await type(shop.getByLabel('E-mail'), 'marie@example.com')
-    await type(shop.getByLabel('Entreprise (facultatif)'), 'Amadeus')
-    const address = shop.getByRole('combobox')
-    await type(address, 'Nice Promenade des Anglais')
-    await shop.getByRole('listbox').getByText('hors zone').first().waitFor({ timeout: 15000 })
-    if (RECORD) await shop.waitForTimeout(1200)
-    step('address outside the zone is flagged')
-    await type(address, '2004 route des Lucioles Biot')
-    await shop.getByRole('listbox').getByRole('button').first().waitFor({ timeout: 15000 })
-    await shop
-      .getByRole('listbox')
-      .getByRole('button', { name: /Lucioles/ })
-      .first()
-      .click()
-    await type(shop.getByLabel('Bâtiment, étage, accueil… (facultatif)'), 'Bât. B, 2e étage')
+    const point = shop.getByRole('radio', { name: /Crédit Agricole Saint-Laurent-du-Var/ })
+    await point.check()
+    if (!(await point.isChecked())) throw new Error('delivery point not selected')
+    step('delivery point chosen from the list')
     await shop.getByRole('button', { name: 'Ticket Restaurant' }).click()
     await shot(shop, 'client-checkout')
     await shop.getByRole('button', { name: 'Commander' }).click()
@@ -152,15 +141,32 @@ try {
 
   // --- Bruno sees it and sends it out ---
   await admin.goto(`${BASE}/admin`)
-  await scene(admin, 'Bruno livre la commande', 'Il la marque « livrée » : le client reçoit un e-mail', async () => {
+  // Stand-in for WhatsApp: shows the prepared message instead of leaving for wa.me.
+  await admin.context().route('https://wa.me/**', (route) => {
+    const url = new URL(route.request().url())
+    const text = url.searchParams.get('text') ?? ''
+    const esc = (t) => t.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c])
+    return route.fulfill({
+      contentType: 'text/html; charset=utf-8',
+      body: `<body style="font-family:sans-serif;padding:24px;background:#e5ddd5"><p>WhatsApp → +${esc(url.pathname.slice(1))}</p><p id="msg" style="background:#dcf8c6;padding:12px;border-radius:8px">${esc(text)}</p></body>`,
+    })
+  })
+  await scene(admin, 'Bruno livre la commande', 'Il la marque « livrée » : WhatsApp s’ouvre avec le message prêt', async () => {
     await admin.getByRole('link', { name: 'Demain' }).click()
     // Scope to this run's order: the database may hold orders from earlier runs.
     const card = admin.locator('li.card').filter({ hasText: code })
-    await card.getByText('Marie Test').waitFor()
+    await card.getByText('Marie', { exact: true }).waitFor()
+    await card.getByText(/Crédit Agricole Saint-Laurent-du-Var/).waitFor()
     await card.getByText('Le Poulet Mayo').waitFor()
     await shot(admin, 'admin-commandes')
-    await card.getByRole('button', { name: 'Livrée (e-mail au client)' }).click()
-    await card.getByText('Livrée', { exact: true }).waitFor()
+    await card.getByRole('button', { name: 'Livrée (WhatsApp au client)' }).click()
+    await admin.waitForURL(/^https:\/\/wa\.me\/33612345678\?text=/, { timeout: 15000 })
+    await admin.locator('#msg').getByText(`votre commande ${code} est arrivée`, { exact: false }).waitFor()
+    if (RECORD) await admin.waitForTimeout(1500)
+    step('WhatsApp opened with the message ready')
+    await admin.goBack()
+    const delivered = admin.locator('li.card').filter({ hasText: code })
+    await delivered.getByRole('button', { name: 'Remettre à préparer' }).waitFor()
     step('order delivered by Bruno')
   })
 

@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## Project notes (sandwichs)
 
-- Read `README.md` first. UI text and emails are in **French**; code and comments in English.
+- Read `README.md` first. UI text is in **French**; code and comments in English.
 - This app is NOT an npm workspace of the repo root, on purpose: Bruno's `GENERER.sh` runs
   `npm install` at the root and must not install Next.js. Run npm commands inside `apps/sandwichs`.
 - `cacheComponents` is off on purpose; pages are `force-dynamic` and always read fresh data.
@@ -20,13 +20,15 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Admin Server Actions must call `requireAdmin()`; `src/proxy.ts` is only a first check.
 - Before finishing a change: `npm test && npm run typecheck && npm run lint`, and for UI flows
   run `e2e/smoke.mjs` against `npm run dev`.
+- Customers are not emailed or texted by the server. "Livrée" in /admin opens a wa.me link
+  (`src/lib/whatsapp.ts`) so Bruno sends the WhatsApp message himself from his phone.
 - The database schema lives in `drizzle/` migrations. Never edit a migration that has run in
   production; change `src/lib/db/schema.ts` and add a new one with `npm run db:generate`.
 
 ## Show visual changes as a video
 
 The user doesn't read the code. After **any** change that is visible in the UI (customer site,
-admin, emails' links), record the demo and show it in the chat:
+admin, WhatsApp message), record the demo and show it in the chat:
 
 1. Update `e2e/smoke.mjs` so the flow covers the change (each `scene(...)` becomes a chapter
    with a French title card; keep the test passing without `RECORD_DIR`, too).

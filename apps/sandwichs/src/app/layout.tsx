@@ -2,8 +2,8 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Suricate · Sandwichs livrés à Sophia Antipolis',
-  description: 'Commandez vos sandwichs Suricate avant 10h, livrés le midi à Sophia Antipolis.',
+  title: 'Suricate · Sandwichs livrés le midi',
+  description: 'Commandez vos sandwichs Suricate avant 10h, livrés le midi à votre point de livraison.',
 }
 
 export const viewport: Viewport = { themeColor: '#ffffff' }

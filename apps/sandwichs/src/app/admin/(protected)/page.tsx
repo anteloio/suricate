@@ -1,10 +1,12 @@
 import Link from 'next/link'
+import { DeliverButton } from '@/components/deliver-button'
 import { PrintButton } from '@/components/print-button'
 import { productionTotals } from '@/lib/cart'
 import type { OrderStatus } from '@/lib/db/schema'
 import { formatEuros } from '@/lib/money'
 import { getOrdersForDay, getRecentOrderDays, getSettings, getUpcomingOpenDays } from '@/lib/queries'
 import { formatCutoff, formatDay, parisNow, relativeDay } from '@/lib/time'
+import { deliveredWhatsAppLink } from '@/lib/whatsapp'
 import { changeOrderStatus } from '../actions'
 
 const STATUS_LABEL: Record<OrderStatus, string> = {
@@ -137,8 +139,7 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
                   📞{' '}
                   <a className='underline' href={`tel:${order.phone.replace(/\s/g, '')}`}>
                     {order.phone}
-                  </a>{' '}
-                  · {order.email}
+                  </a>
                 </p>
                 <p>
                   💶 <strong>{formatEuros(order.totalCents)}</strong> en {order.paymentMethod}
@@ -148,23 +149,30 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
               <div className='no-print mt-3 flex flex-wrap gap-2'>
                 {(['livree', 'confirmee', 'annulee'] as const)
                   .filter((s) => s !== order.status)
-                  .map((s) => (
-                    <form key={s} action={changeOrderStatus}>
-                      <input type='hidden' name='orderId' value={order.id} />
-                      <input type='hidden' name='status' value={s} />
-                      <button
-                        className={`btn-secondary ${s === 'livree' && !order.deliveredAt ? 'border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700' : ''}`}
-                      >
-                        {s === 'livree'
-                          ? order.deliveredAt
-                            ? 'Livrée'
-                            : 'Livrée (e-mail au client)'
-                          : s === 'confirmee'
-                            ? 'Remettre à préparer'
-                            : 'Annuler'}
-                      </button>
-                    </form>
-                  ))}
+                  .map((s) =>
+                    s === 'livree' && !order.deliveredAt ? (
+                      // First delivery: save the status, then open WhatsApp with the message ready.
+                      <DeliverButton
+                        key={s}
+                        orderId={order.id}
+                        whatsappUrl={deliveredWhatsAppLink(order)}
+                        className='btn-secondary border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700'
+                      />
+                    ) : (
+                      <form key={s} action={changeOrderStatus}>
+                        <input type='hidden' name='orderId' value={order.id} />
+                        <input type='hidden' name='status' value={s} />
+                        <button className='btn-secondary'>
+                          {s === 'livree' ? 'Livrée' : s === 'confirmee' ? 'Remettre à préparer' : 'Annuler'}
+                        </button>
+                      </form>
+                    )
+                  )}
+                {order.status === 'livree' && deliveredWhatsAppLink(order) && (
+                  <a className='btn-secondary' href={deliveredWhatsAppLink(order)!}>
+                    Renvoyer le WhatsApp
+                  </a>
+                )}
               </div>
             </li>
           ))}

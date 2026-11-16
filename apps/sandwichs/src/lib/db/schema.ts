@@ -36,6 +36,8 @@ export const settings = pgTable('settings', {
   deliveryWindow: text('delivery_window').notNull().default('12h – 13h'),
   minOrderCents: integer('min_order_cents').notNull().default(650),
   formulePriceCents: integer('formule_price_cents').notNull().default(650),
+  // Unused since customers pick a delivery point (src/lib/delivery-points.ts); kept so older
+  // deployments keep working while a new one rolls out.
   zoneLabel: text('zone_label').notNull().default('Sophia Antipolis'),
   zoneCenterLat: doublePrecision('zone_center_lat').notNull().default(43.615512),
   zoneCenterLon: doublePrecision('zone_center_lon').notNull().default(7.054762),
@@ -47,10 +49,15 @@ export const orders = pgTable('orders', {
   code: text('code').notNull().unique(),
   serviceDate: text('service_date').notNull(),
   status: text('status').$type<OrderStatus>().notNull().default('confirmee'),
+  // First name only since the form was simplified (older orders hold the full name).
   customerName: text('customer_name').notNull(),
-  email: text('email').notNull(),
+  // No longer asked; only older orders have one.
+  email: text('email'),
   phone: text('phone').notNull(),
   company: text('company').notNull().default(''),
+  // Id from src/lib/delivery-points.ts; null on older orders, which had a free address.
+  deliveryPointId: text('delivery_point_id'),
+  // Snapshot of the delivery point (name + address) at order time.
   addressLabel: text('address_label').notNull(),
   addressDetails: text('address_details').notNull().default(''),
   lat: doublePrecision('lat').notNull(),

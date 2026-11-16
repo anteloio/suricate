@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { priceCart, productionTotals, type MenuProduct } from '../cart'
-import { distanceKm, isInZone } from '../geo'
+import { DELIVERY_POINTS, findDeliveryPoint } from '../delivery-points'
 import { formatEuros, parseEuros } from '../money'
+import { deliveredText, deliveredWhatsAppLink, toE164 } from '../whatsapp'
 import { addDays, formatCutoff, orderableDays, parisNow } from '../time'
 
 const menu: MenuProduct[] = [
@@ -146,12 +147,17 @@ describe('time (Europe/Paris)', () => {
   })
 })
 
-describe('zone', () => {
-  const zone = { zoneCenterLat: 43.615512, zoneCenterLon: 7.054762, zoneRadiusKm: 4 }
-  it('accepts Sophia Antipolis and refuses Nice', () => {
-    expect(isInZone({ lat: 43.6206, lon: 7.0712 }, zone)).toBe(true) // Les Templiers area
-    expect(isInZone({ lat: 43.7031, lon: 7.2661 }, zone)).toBe(false) // Nice
-    expect(distanceKm({ lat: 0, lon: 0 }, { lat: 0, lon: 1 })).toBeCloseTo(111.19, 1)
+describe('delivery points', () => {
+  it('have unique ids and valid coordinates', () => {
+    expect(new Set(DELIVERY_POINTS.map((p) => p.id)).size).toBe(DELIVERY_POINTS.length)
+    for (const p of DELIVERY_POINTS) {
+      expect(p.lat).toBeGreaterThan(43)
+      expect(p.lat).toBeLessThan(44)
+      expect(p.lon).toBeGreaterThan(6.5)
+      expect(p.lon).toBeLessThan(7.5)
+    }
+    expect(findDeliveryPoint('ca-saint-laurent-du-var')?.address).toContain('Saint-Laurent-du-Var')
+    expect(findDeliveryPoint('nope')).toBeUndefined()
   })
 })
 
@@ -161,5 +167,36 @@ describe('money', () => {
     expect(parseEuros('6,50')).toBe(650)
     expect(parseEuros('6.5 €')).toBe(650)
     expect(parseEuros('abc')).toBeNull()
+  })
+})
+
+describe('whatsapp message', () => {
+  it('normalizes French numbers to E.164', () => {
+    expect(toE164('06 12 34 56 78')).toBe('+33612345678')
+    expect(toE164('07.12.34.56.78')).toBe('+33712345678')
+    expect(toE164('+33 6 12 34 56 78')).toBe('+33612345678')
+    expect(toE164('+33 06 12 34 56 78')).toBe('+33612345678')
+    expect(toE164('0033612345678')).toBe('+33612345678')
+    expect(toE164('+41 79 123 45 67')).toBe('+41791234567')
+    expect(toE164('abc')).toBeNull()
+  })
+  it('writes a short delivery text', () => {
+    const text = deliveredText({
+      code: 'AB2CD',
+      customerName: 'Marie',
+      deliveryPointId: 'ca-saint-laurent-du-var',
+      addressLabel: '',
+    })
+    expect(text).toContain('AB2CD')
+    expect(text).toContain('Marie')
+    expect(text).toContain('Crédit Agricole')
+    expect(text.length).toBeLessThanOrEqual(160)
+  })
+  it('builds a wa.me link with the number in international format', () => {
+    const order = { code: 'AB2CD', customerName: 'Marie', phone: '06 12 34 56 78', deliveryPointId: null, addressLabel: 'Ici' }
+    const url = deliveredWhatsAppLink(order)!
+    expect(url.startsWith('https://wa.me/33612345678?text=')).toBe(true)
+    expect(decodeURIComponent(url.split('?text=')[1])).toBe(deliveredText(order))
+    expect(deliveredWhatsAppLink({ ...order, phone: 'abc' })).toBeNull()
   })
 })

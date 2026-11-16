@@ -97,18 +97,16 @@ export async function saveSettings(_: FormState, formData: FormData): Promise<Fo
     .map(Number)
   const minOrderCents = parseEuros(String(formData.get('minOrder') ?? ''))
   const formulePriceCents = parseEuros(String(formData.get('formulePrice') ?? ''))
-  const zoneRadiusKm = Number(String(formData.get('zoneRadiusKm') ?? '').replace(',', '.'))
   const deliveryWindow = String(formData.get('deliveryWindow') ?? '').trim()
   if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) {
     return { error: 'Heure limite invalide.' }
   }
   if (minOrderCents === null || formulePriceCents === null) return { error: 'Prix invalide (ex : 6,50).' }
-  if (!(zoneRadiusKm > 0 && zoneRadiusKm <= 30)) return { error: 'Rayon invalide (entre 0,5 et 30 km).' }
   if (!deliveryWindow) return { error: 'Indiquez le créneau de livraison.' }
   const d = await db()
   await d
     .update(settings)
-    .set({ cutoffMinutes: h * 60 + m, minOrderCents, formulePriceCents, zoneRadiusKm, deliveryWindow })
+    .set({ cutoffMinutes: h * 60 + m, minOrderCents, formulePriceCents, deliveryWindow })
     .where(eq(settings.id, 1))
   revalidatePath('/', 'layout')
   return { ok: 'Réglages enregistrés.' }

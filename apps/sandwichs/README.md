@@ -1,17 +1,19 @@
 # Suricate · Sandwichs
 
-Online sandwich pre-orders for Bruno, delivered at lunch in Sophia Antipolis.
+Online sandwich pre-orders for Bruno, delivered at lunch to fixed delivery points.
 Customers order before the cutoff (10h by default) for the days Bruno opens; they pay on delivery.
 
-- **Customer site** `/`: formule builder (sandwich* + drink), à-la-carte items, cart, delivery
-  address with autocomplete (French government address API) restricted to a radius around
-  Sophia Antipolis, payment method chosen at order time. Confirmation page `/commande/<code>`.
+- **Customer site** `/`: formule builder (sandwich* + drink), à-la-carte items, cart, first name,
+  phone, a delivery point picked from a list, payment method chosen at order time. Confirmation
+  page `/commande/<code>`.
+- **Delivery points** live in `src/lib/delivery-points.ts` (name, address, coordinates). Add an
+  entry there to offer a new point; keep existing ids, they are stored on orders.
 - **Bruno's area** `/admin` (password): orders per day with production totals and payment
-  breakdown, "livrée" button (emails the customer that the order has arrived), days to open, menu editor, settings
-  (cutoff, delivery window, formule price, minimum order, zone radius).
+  breakdown, "Livrée" button (marks the order delivered, then opens WhatsApp on Bruno's phone
+  with a ready-to-send message to the customer, via a wa.me link; see `src/lib/whatsapp.ts`), days to open, menu editor, settings (cutoff, delivery window, formule price, minimum order).
 
 Stack: Next.js 16 (App Router) · TypeScript · Tailwind 4 · Drizzle ORM · Postgres
-(Neon in production, embedded PGlite locally) · Resend for emails. Hosted on Vercel.
+(Neon in production, embedded PGlite locally). Hosted on Vercel.
 
 ## Local development
 
@@ -21,11 +23,11 @@ npm install
 npm run dev          # http://localhost:3000, admin password: admin
 ```
 
-No setup needed: the database lives in `.data/` (delete the folder to start over), and emails
-are printed in the terminal. See `.env.example` for optional variables.
+No setup needed: the database lives in `.data/` (delete the folder to start over). See
+`.env.example` for optional variables.
 
 ```bash
-npm test             # unit tests (pricing, cutoff/timezone, zone)
+npm test             # unit tests (pricing, cutoff/timezone, delivery points, WhatsApp link)
 npm run typecheck
 npm run lint
 BASE_URL=http://localhost:3000 node e2e/smoke.mjs   # full flow in local Chrome
@@ -47,8 +49,8 @@ Live at **https://suricate-sandwichs.vercel.app** (Vercel team `mdless`, project
   touch this folder (e.g. Bruno's food truck menu updates).
 - Database: Neon project `suricate-sandwichs` (`aws-eu-central-1`, Frankfurt), pooled
   connection string in the `DATABASE_URL` production variable. Migrations run at build time.
-- Environment variables (production): `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`; for
-  emails `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO`; optionally `SITE_URL`.
+- Environment variables (production): `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`.
+  (`RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO`, `SITE_URL` are no longer used.)
 - Deploy by hand from the repo root (already linked in `.vercel/`): `vercel deploy --prod`.
   Once the Vercel GitHub app has access to the repo, `vercel git connect` makes every push
   to `main` deploy automatically.

@@ -8,8 +8,6 @@ type Values = {
   deliveryWindow: string
   minOrder: string
   formulePrice: string
-  zoneRadiusKm: string
-  zoneLabel: string
 }
 
 export function SettingsForm({ values }: { values: Values }) {
@@ -37,16 +35,6 @@ export function SettingsForm({ values }: { values: Values }) {
       <label>
         <span className='label'>Commande minimum (€)</span>
         <input name='minOrder' required inputMode='decimal' defaultValue={values.minOrder} className='input mt-1' />
-      </label>
-      <label className='sm:col-span-2'>
-        <span className='label'>Rayon de livraison autour de {values.zoneLabel} (km)</span>
-        <input
-          name='zoneRadiusKm'
-          required
-          inputMode='decimal'
-          defaultValue={values.zoneRadiusKm}
-          className='input mt-1 sm:w-40'
-        />
       </label>
       <div className='flex items-center gap-3 sm:col-span-2'>
         <button disabled={pending} className='btn-primary'>

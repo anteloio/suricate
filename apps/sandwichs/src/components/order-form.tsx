@@ -4,29 +4,22 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { cartItemKey, MAX_QUANTITY, priceCart, type CartItem, type MenuProduct, type PricingRules } from '@/lib/cart'
 import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/db/schema'
-import { isInZone, type Zone } from '@/lib/geo'
+import { type DeliveryPoint } from '@/lib/delivery-points'
 import { formatEuros } from '@/lib/money'
-import { AddressInput, type Address } from './address-input'
 
 type Day = { date: string; label: string }
 
 type Customer = {
   customerName: string
-  email: string
   phone: string
-  company: string
-  address: Address | null
-  addressDetails: string
+  deliveryPointId: string
   paymentMethod: PaymentMethod | ''
 }
 
 const EMPTY_CUSTOMER: Customer = {
   customerName: '',
-  email: '',
   phone: '',
-  company: '',
-  address: null,
-  addressDetails: '',
+  deliveryPointId: '',
   paymentMethod: '',
 }
 
@@ -38,21 +31,23 @@ export function OrderForm({
   menu,
   days,
   rules,
-  zone,
+  deliveryPoints,
   cutoff,
   deliveryWindow,
 }: {
   menu: MenuProduct[]
   days: Day[]
   rules: PricingRules
-  zone: Zone & { label: string }
+  deliveryPoints: DeliveryPoint[]
   cutoff: string
   deliveryWindow: string
 }) {
   const router = useRouter()
   const [serviceDate, setServiceDate] = useState(days[0].date)
   const [cart, setCart] = useState<CartItem[]>([])
-  const [customer, setCustomer] = useState<Customer>(EMPTY_CUSTOMER)
+  // With a single delivery point there is nothing to choose: preselect it.
+  const defaultPointId = deliveryPoints.length === 1 ? deliveryPoints[0].id : ''
+  const [customer, setCustomer] = useState<Customer>({ ...EMPTY_CUSTOMER, deliveryPointId: defaultPointId })
   const [notes, setNotes] = useState('')
   const [website, setWebsite] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -63,8 +58,22 @@ export function OrderForm({
   useEffect(() => {
     try {
       const savedCustomer = localStorage.getItem(CUSTOMER_KEY)
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (savedCustomer) setCustomer({ ...EMPTY_CUSTOMER, ...JSON.parse(savedCustomer) })
+      if (savedCustomer) {
+        // Older saves also hold fields the form no longer asks for (email, address…): keep only ours.
+        const saved = JSON.parse(savedCustomer) as Partial<Customer>
+        const pointId = deliveryPoints.some((p) => p.id === saved.deliveryPointId)
+          ? saved.deliveryPointId!
+          : defaultPointId
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setCustomer({
+          customerName: typeof saved.customerName === 'string' ? saved.customerName.trim().split(/\s+/)[0] : '',
+          phone: typeof saved.phone === 'string' ? saved.phone : '',
+          deliveryPointId: pointId,
+          paymentMethod: PAYMENT_METHODS.includes(saved.paymentMethod as PaymentMethod)
+            ? (saved.paymentMethod as PaymentMethod)
+            : '',
+        })
+      }
       const savedCart = localStorage.getItem(CART_KEY)
       if (savedCart) {
         const items = JSON.parse(savedCart) as CartItem[]
@@ -75,7 +84,7 @@ export function OrderForm({
       // Corrupted storage: start fresh.
     }
     setLoaded(true)
-  }, [menu, rules])
+  }, [menu, rules, deliveryPoints, defaultPointId])
 
   useEffect(() => {
     if (loaded) localStorage.setItem(CART_KEY, JSON.stringify(cart))
@@ -109,8 +118,7 @@ export function OrderForm({
     e.preventDefault()
     setError(null)
     if (!priced.ok) return setError(priced.error)
-    if (!customer.address) return setError('Choisissez votre adresse dans la liste proposée.')
-    if (!isInZone(customer.address, zone)) return setError(`Désolé, nous livrons uniquement à ${zone.label}.`)
+    if (!customer.deliveryPointId) return setError('Choisissez un point de livraison.')
     if (!customer.paymentMethod) return setError('Choisissez un moyen de paiement.')
 
     setSubmitting(true)
@@ -221,11 +229,11 @@ export function OrderForm({
         <section className='space-y-4'>
           <h2 className='section-title'>Livraison</h2>
           <div className='grid gap-4 sm:grid-cols-2'>
-            <Field label='Nom et prénom'>
+            <Field label='Prénom'>
               <input
                 className='input'
                 required
-                autoComplete='name'
+                autoComplete='given-name'
                 value={customer.customerName}
                 onChange={(e) => update('customerName', e.target.value)}
               />
@@ -240,40 +248,34 @@ export function OrderForm({
                 onChange={(e) => update('phone', e.target.value)}
               />
             </Field>
-            <Field label='E-mail' hint='Pour la confirmation, puis quand la commande est livrée.'>
-              <input
-                className='input'
-                required
-                type='email'
-                autoComplete='email'
-                value={customer.email}
-                onChange={(e) => update('email', e.target.value)}
-              />
-            </Field>
-            <Field label='Entreprise (facultatif)'>
-              <input
-                className='input'
-                autoComplete='organization'
-                value={customer.company}
-                onChange={(e) => update('company', e.target.value)}
-              />
-            </Field>
           </div>
-          <Field label='Adresse de livraison'>
-            <AddressInput
-              key={loaded ? 'restored' : 'initial'}
-              value={customer.address}
-              onChange={(a) => update('address', a)}
-              zone={zone}
-            />
-          </Field>
-          <Field label='Bâtiment, étage, accueil… (facultatif)'>
-            <input
-              className='input'
-              value={customer.addressDetails}
-              onChange={(e) => update('addressDetails', e.target.value)}
-            />
-          </Field>
+          <fieldset>
+            <legend className='label'>Point de livraison</legend>
+            <div className='mt-2 grid gap-2'>
+              {deliveryPoints.map((p) => {
+                const selected = customer.deliveryPointId === p.id
+                return (
+                  <label
+                    key={p.id}
+                    className={`flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 ring-1 ${selected ? 'bg-stone-50 ring-2 ring-neutral-900' : 'bg-white ring-neutral-200 hover:bg-stone-50'}`}
+                  >
+                    <input
+                      type='radio'
+                      name='deliveryPoint'
+                      required
+                      className='mt-1'
+                      checked={selected}
+                      onChange={() => update('deliveryPointId', p.id)}
+                    />
+                    <span>
+                      <span className='block font-medium'>{p.name}</span>
+                      <span className='block text-sm text-neutral-500'>{p.address}</span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          </fieldset>
           <fieldset>
             <legend className='label'>Paiement à la livraison</legend>
             <div className='mt-2 flex flex-wrap gap-2'>

@@ -29,7 +29,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<'/co
         <p className='mt-6 rounded-2xl bg-green-50 px-4 py-4 text-center text-green-900 ring-1 ring-green-200'>
           Merci {order.customerName.split(' ')[0]} ! Votre commande est bien enregistrée.
           <br />
-          Un e-mail de confirmation est parti à {order.email}.
+          Gardez cette page : elle affiche l’état de votre commande.
         </p>
       )}
       <section className='card mt-6 space-y-4'>
@@ -66,7 +66,7 @@ export default async function OrderPage({ params, searchParams }: PageProps<'/co
       </section>
       {order.status === 'confirmee' && (
         <p className='mt-6 text-center text-sm text-neutral-500'>
-          Vous recevrez un e-mail dès que votre commande sera livrée.
+          Vous recevrez un message WhatsApp dès que votre commande sera arrivée.
         </p>
       )}
     </main>

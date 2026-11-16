@@ -14,8 +14,6 @@ export default async function SettingsPage() {
           deliveryWindow: s.deliveryWindow,
           minOrder: (s.minOrderCents / 100).toFixed(2).replace('.', ','),
           formulePrice: (s.formulePriceCents / 100).toFixed(2).replace('.', ','),
-          zoneRadiusKm: String(s.zoneRadiusKm).replace('.', ','),
-          zoneLabel: s.zoneLabel,
         }}
       />
     </main>

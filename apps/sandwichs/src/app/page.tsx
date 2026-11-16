@@ -1,5 +1,6 @@
 import { Logo } from '@/components/logo'
 import { OrderForm } from '@/components/order-form'
+import { DELIVERY_POINTS } from '@/lib/delivery-points'
 import { formatEuros } from '@/lib/money'
 import { getMenu, getOrderableDays, getSettings } from '@/lib/queries'
 import { formatCutoff, relativeDay } from '@/lib/time'
@@ -17,8 +18,8 @@ export default async function HomePage() {
         <Logo className='mx-auto h-16 w-auto' />
         <h1 className='mt-2 font-serif text-2xl tracking-[0.2em] text-brand uppercase'>Nos sandwichs</h1>
         <p className='mt-3 text-neutral-600'>
-          Commandez avant <strong>{cutoff}</strong>, livraison <strong>{settings.deliveryWindow}</strong> à{' '}
-          {settings.zoneLabel}.
+          Commandez avant <strong>{cutoff}</strong>, livraison <strong>{settings.deliveryWindow}</strong>{' '}
+          {DELIVERY_POINTS.length === 1 ? `au ${DELIVERY_POINTS[0].name}` : 'au point de livraison de votre choix'}.
           <br />
           Livraison offerte · minimum {formatEuros(settings.minOrderCents)} · paiement à la livraison
         </p>
@@ -48,12 +49,7 @@ export default async function HomePage() {
             formulePriceCents: settings.formulePriceCents,
             minOrderCents: settings.minOrderCents,
           }}
-          zone={{
-            label: settings.zoneLabel,
-            zoneCenterLat: settings.zoneCenterLat,
-            zoneCenterLon: settings.zoneCenterLon,
-            zoneRadiusKm: settings.zoneRadiusKm,
-          }}
+          deliveryPoints={[...DELIVERY_POINTS]}
           cutoff={cutoff}
           deliveryWindow={settings.deliveryWindow}
         />
