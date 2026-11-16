@@ -40,8 +40,15 @@ On an empty database the initial menu (`src/lib/db/seed.ts`) and default setting
 
 ## Deployment (Vercel)
 
+Live at **https://suricate-sandwichs.vercel.app** (Vercel team `mdless`, project
+`suricate-sandwichs`, functions in `fra1`).
+
 - Project root directory: `apps/sandwichs`. `vercel.json` skips builds when a commit doesn't
   touch this folder (e.g. Bruno's food truck menu updates).
-- Storage: Neon integration (provides `DATABASE_URL`).
-- Environment variables: `ADMIN_PASSWORD`, `SESSION_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`,
-  `EMAIL_REPLY_TO`, optionally `SITE_URL`.
+- Database: Neon project `suricate-sandwichs` (`aws-eu-central-1`, Frankfurt), pooled
+  connection string in the `DATABASE_URL` production variable. Migrations run at build time.
+- Environment variables (production): `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`; for
+  emails `RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO`; optionally `SITE_URL`.
+- Deploy by hand from the repo root (already linked in `.vercel/`): `vercel deploy --prod`.
+  Once the Vercel GitHub app has access to the repo, `vercel git connect` makes every push
+  to `main` deploy automatically.
