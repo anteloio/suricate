@@ -1,5 +1,6 @@
 'use client'
 
+import { ShoppingBag } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -48,7 +49,7 @@ export function SiteHeader() {
             // A plain link so the order form sees the hash change and opens the cart step.
             // eslint-disable-next-line @next/next/no-html-link-for-pages
             <a href='/#panier' className='nav-pill' aria-label={`Panier, ${count} article${count > 1 ? 's' : ''}`}>
-              <CartIcon />
+              <ShoppingBag className='size-5' strokeWidth={2} aria-hidden />
               <span className='tabular-nums'>{count}</span>
             </a>
           )}
@@ -62,14 +63,5 @@ export function SiteHeader() {
         </nav>
       </div>
     </header>
-  )
-}
-
-function CartIcon() {
-  return (
-    <svg viewBox='0 0 24 24' className='size-4' fill='none' stroke='currentColor' strokeWidth='2' aria-hidden>
-      <path d='M6 7h12l-1.2 11.1a2 2 0 0 1-2 1.9H9.2a2 2 0 0 1-2-1.9L6 7Z' strokeLinejoin='round' />
-      <path d='M9 10V6a3 3 0 0 1 6 0v4' strokeLinecap='round' />
-    </svg>
   )
 }

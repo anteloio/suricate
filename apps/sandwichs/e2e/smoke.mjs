@@ -24,8 +24,10 @@ const hideDevBadge = (target) =>
   RECORD &&
   target.addInitScript(() =>
     document.addEventListener('DOMContentLoaded', () =>
-      document.head.append(Object.assign(document.createElement('style'), { textContent: 'nextjs-portal{display:none!important}' })),
-    ),
+      document.head.append(
+        Object.assign(document.createElement('style'), { textContent: 'nextjs-portal{display:none!important}' })
+      )
+    )
   )
 const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
 const step = (msg) => console.log(`✓ ${msg}`)
@@ -66,11 +68,25 @@ function joinClips() {
   const scaled = clips.map(
     (_, i) =>
       `[${i}:v]fps=25,scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
-      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0xe7e5e4,setsar=1[v${i}]`,
+      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0xe7e5e4,setsar=1[v${i}]`
   )
   const filter = `${scaled.join(';')};${clips.map((_, i) => `[v${i}]`).join('')}concat=n=${clips.length}:v=1:a=0[out]`
   const args = ['-y', '-loglevel', 'error', ...clips.flatMap((c) => ['-i', c])]
-  args.push('-filter_complex', filter, '-map', '[out]', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '26', '-movflags', '+faststart', out)
+  args.push(
+    '-filter_complex',
+    filter,
+    '-map',
+    '[out]',
+    '-c:v',
+    'libx264',
+    '-pix_fmt',
+    'yuv420p',
+    '-crf',
+    '26',
+    '-movflags',
+    '+faststart',
+    out
+  )
   const res = spawnSync('ffmpeg', args, { stdio: 'inherit' })
   if (res.error || res.status !== 0) console.warn(`(ffmpeg unavailable or failed: clips are in ${RECORD})`)
   else console.log(`\n🎬 ${out}`)
@@ -112,19 +128,28 @@ try {
   await hideDevBadge(ctx)
   const shop = await ctx.newPage()
   await shop.goto(BASE)
-  const totalIs = (text) => shop.locator('dl > div').filter({ hasText: /^Total/ }).getByText(text)
+  const totalIs = (text) =>
+    shop
+      .locator('dl > div')
+      .filter({ hasText: /^Total/ })
+      .getByText(text)
   const bar = shop.locator('.fixed.bottom-0')
-  await scene(shop, 'Étape 1 : le menu', 'Il ajoute ses articles avec les + : la formule se fait toute seule', async () => {
-    await shot(shop, 'client-menu')
-    await shop.getByRole('button', { name: 'Ajouter Le Poulet Mayo', exact: true }).click()
-    await shop.getByRole('button', { name: 'Ajouter Oasis Cassis', exact: true }).click()
-    await shop.getByRole('button', { name: 'Ajouter Cookie maison Chocolat', exact: true }).click()
-    await bar.getByText('3 articles · 8,50').waitFor()
-    await bar.getByText('Formule appliquée').waitFor()
-    if (RECORD) await shop.waitForTimeout(800)
-    step('menu: formule applied automatically, 3 items = 8,50 €')
-    await bar.getByRole('button', { name: 'Voir le panier' }).click()
-  })
+  await scene(
+    shop,
+    'Étape 1 : le menu',
+    'Il ajoute ses articles avec les + : la formule se fait toute seule',
+    async () => {
+      await shot(shop, 'client-menu')
+      await shop.getByRole('button', { name: 'Ajouter Le Poulet Mayo', exact: true }).click()
+      await shop.getByRole('button', { name: 'Ajouter Oasis Cassis', exact: true }).click()
+      await shop.getByRole('button', { name: 'Ajouter Cookie maison Chocolat', exact: true }).click()
+      await bar.getByText('3 articles · 8,50').waitFor()
+      await bar.getByText('Formule appliquée').waitFor()
+      if (RECORD) await shop.waitForTimeout(800)
+      step('menu: formule applied automatically, 3 items = 8,50 €')
+      await bar.getByRole('button', { name: 'Voir le panier' }).click()
+    }
+  )
 
   await scene(shop, 'Étape 2 : le panier', 'Il vérifie sa commande et ajuste les quantités', async () => {
     await shop.waitForURL(/#panier$/)
@@ -164,7 +189,12 @@ try {
     await totalIs('15,00').waitFor()
     await shop.goForward()
     await shop.getByLabel('Prénom').waitFor()
-    step('back button returns to the cart')
+    // So does the on-screen "Retour" button in the bottom bar.
+    await bar.getByRole('button', { name: 'Retour' }).click()
+    await totalIs('15,00').waitFor()
+    await bar.getByRole('button', { name: 'Continuer' }).click()
+    await shop.getByLabel('Prénom').waitFor()
+    step('back buttons (phone and Retour) return to the cart')
 
     await type(shop.getByLabel('Prénom'), 'Marie')
     await type(shop.getByLabel('Téléphone'), '06 12 34 56 78')
@@ -204,9 +234,12 @@ try {
     await bar.getByRole('button', { name: 'Continuer' }).click()
     // Same editable fields as the first time, already filled in from this phone.
     if ((await shop.getByLabel('Prénom').inputValue()) !== 'Marie') throw new Error('prénom should be prefilled')
-    if ((await shop.getByLabel(/Téléphone/).inputValue()) !== '06 12 34 56 78') throw new Error('phone should be prefilled')
-    if (!(await shop.getByRole('radio', { name: /Crédit Agricole/ }).isChecked())) throw new Error('point should be preselected')
-    if ((await shop.getByRole('button', { name: 'Modifier' }).count()) !== 0) throw new Error('no summary card expected')
+    if ((await shop.getByLabel(/Téléphone/).inputValue()) !== '06 12 34 56 78')
+      throw new Error('phone should be prefilled')
+    if (!(await shop.getByRole('radio', { name: /Crédit Agricole/ }).isChecked()))
+      throw new Error('point should be preselected')
+    if ((await shop.getByRole('button', { name: 'Modifier' }).count()) !== 0)
+      throw new Error('no summary card expected')
     if (RECORD) await shop.waitForTimeout(1200)
     step('returning customer: editable fields prefilled')
     // Leave the cart empty for the rest of the run.
@@ -225,24 +258,29 @@ try {
       body: `<body style="font-family:sans-serif;padding:24px;background:#e5ddd5"><p>WhatsApp → +${esc(url.pathname.slice(1))}</p><p id="msg" style="background:#dcf8c6;padding:12px;border-radius:8px">${esc(text)}</p></body>`,
     })
   })
-  await scene(admin, 'Bruno livre la commande', 'Il la marque « livrée » : WhatsApp s’ouvre avec le message prêt', async () => {
-    await admin.getByRole('link', { name: 'Demain' }).click()
-    // Scope to this run's order: the database may hold orders from earlier runs.
-    const card = admin.locator('li.card').filter({ hasText: code })
-    await card.getByText('Marie', { exact: true }).waitFor()
-    await card.getByText(/Crédit Agricole Saint-Laurent-du-Var/).waitFor()
-    await card.getByText('Formule : Le Poulet Mayo + Eau minérale').waitFor()
-    await shot(admin, 'admin-commandes')
-    await card.getByRole('button', { name: 'Livrée (WhatsApp au client)' }).click()
-    await admin.waitForURL(/^https:\/\/wa\.me\/33612345678\?text=/, { timeout: 15000 })
-    await admin.locator('#msg').getByText(`votre commande ${code} est arrivée`, { exact: false }).waitFor()
-    if (RECORD) await admin.waitForTimeout(1500)
-    step('WhatsApp opened with the message ready')
-    await admin.goBack()
-    const delivered = admin.locator('li.card').filter({ hasText: code })
-    await delivered.getByRole('button', { name: 'Remettre à préparer' }).waitFor()
-    step('order delivered by Bruno')
-  })
+  await scene(
+    admin,
+    'Bruno livre la commande',
+    'Il la marque « livrée » : WhatsApp s’ouvre avec le message prêt',
+    async () => {
+      await admin.getByRole('link', { name: 'Demain' }).click()
+      // Scope to this run's order: the database may hold orders from earlier runs.
+      const card = admin.locator('li.card').filter({ hasText: code })
+      await card.getByText('Marie', { exact: true }).waitFor()
+      await card.getByText(/Crédit Agricole Saint-Laurent-du-Var/).waitFor()
+      await card.getByText('Formule : Le Poulet Mayo + Eau minérale').waitFor()
+      await shot(admin, 'admin-commandes')
+      await card.getByRole('button', { name: 'Livrée (WhatsApp au client)' }).click()
+      await admin.waitForURL(/^https:\/\/wa\.me\/33612345678\?text=/, { timeout: 15000 })
+      await admin.locator('#msg').getByText(`votre commande ${code} est arrivée`, { exact: false }).waitFor()
+      if (RECORD) await admin.waitForTimeout(1500)
+      step('WhatsApp opened with the message ready')
+      await admin.goBack()
+      const delivered = admin.locator('li.card').filter({ hasText: code })
+      await delivered.getByRole('button', { name: 'Remettre à préparer' }).waitFor()
+      step('order delivered by Bruno')
+    }
+  )
 
   await shop.goto(`${BASE}/commande/${code}`)
   await scene(shop, 'Le client suit sa commande', 'Le statut passe à « Livrée »', async () => {

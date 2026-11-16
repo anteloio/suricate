@@ -1,5 +1,6 @@
 'use client'
 
+import { ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -408,10 +409,10 @@ export function OrderForm({
               <button
                 type='button'
                 className='qty shrink-0'
-                aria-label='Étape précédente'
+                aria-label='Retour'
                 onClick={() => goTo(step === 'livraison' ? 'panier' : 'menu')}
               >
-                ←
+                <ArrowLeft className='size-5' strokeWidth={2} aria-hidden />
               </button>
             )}
             <div className='flex-1 text-sm leading-tight'>
