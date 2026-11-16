@@ -1,6 +1,5 @@
-import Link from 'next/link'
-import { Logo } from '@/components/logo'
 import { OrderForm } from '@/components/order-form'
+import { PageTitle } from '@/components/page-title'
 import { DELIVERY_POINTS } from '@/lib/delivery-points'
 import { formatEuros } from '@/lib/money'
 import { getMenu, getOrderableDays, getSettings } from '@/lib/queries'
@@ -14,22 +13,18 @@ export default async function HomePage() {
   const cutoff = formatCutoff(settings.cutoffMinutes)
 
   return (
-    <main className='mx-auto max-w-2xl px-4 pb-40 pt-8'>
-      <nav className='flex justify-end'>
-        <Link href='/mes-commandes' className='btn-secondary'>
-          Mes commandes
-        </Link>
-      </nav>
-      <header className='text-center'>
-        <Logo className='mx-auto h-16 w-auto' />
-        <h1 className='mt-2 font-serif text-2xl tracking-[0.2em] text-brand uppercase'>Nos sandwichs</h1>
-        <p className='mt-3 text-neutral-600'>
-          Commandez avant <strong>{cutoff}</strong>, livraison <strong>{settings.deliveryWindow}</strong>{' '}
-          {DELIVERY_POINTS.length === 1 ? `au ${DELIVERY_POINTS[0].name}` : 'au point de livraison de votre choix'}.
-          <br />
-          Livraison offerte · minimum {formatEuros(settings.minOrderCents)} · paiement à la livraison
-        </p>
-      </header>
+    <main className='mx-auto max-w-2xl px-4 pt-6 pb-40'>
+      <PageTitle
+        title='Nos sandwichs'
+        subtitle={
+          <>
+            Commandez avant <strong>{cutoff}</strong>, livraison <strong>{settings.deliveryWindow}</strong>{' '}
+            {DELIVERY_POINTS.length === 1 ? `au ${DELIVERY_POINTS[0].name}` : 'au point de livraison de votre choix'}.
+            <br />
+            Livraison offerte · minimum {formatEuros(settings.minOrderCents)} · paiement à la livraison
+          </>
+        }
+      />
 
       {days.length === 0 ? (
         <section className='mt-10 rounded-2xl border border-neutral-200 bg-white p-6 text-center'>

@@ -178,6 +178,8 @@ try {
     await shop.waitForURL(/\/commande\/[A-Z0-9]{5}\?nouvelle=1/, { timeout: 15000 })
     await shop.getByText('Votre commande est bien enregistrée').waitFor()
     code = shop.url().match(/commande\/([A-Z0-9]{5})/)[1]
+    // Same status pill as in "Mes commandes".
+    await shop.getByText('En préparation', { exact: true }).waitFor()
     await shot(shop, 'client-confirmation')
     step(`order ${code} placed`)
   })
@@ -200,11 +202,13 @@ try {
     await shop.getByRole('button', { name: 'Ajouter Coca Cola', exact: true }).click()
     await bar.getByRole('button', { name: 'Voir le panier' }).click()
     await bar.getByRole('button', { name: 'Continuer' }).click()
-    await shop.getByText('Marie · 06 12 34 56 78').waitFor()
-    await shop.getByRole('button', { name: 'Modifier' }).waitFor()
-    if ((await shop.getByLabel('Prénom').count()) !== 0) throw new Error('details should be prefilled')
+    // Same editable fields as the first time, already filled in from this phone.
+    if ((await shop.getByLabel('Prénom').inputValue()) !== 'Marie') throw new Error('prénom should be prefilled')
+    if ((await shop.getByLabel(/Téléphone/).inputValue()) !== '06 12 34 56 78') throw new Error('phone should be prefilled')
+    if (!(await shop.getByRole('radio', { name: /Crédit Agricole/ }).isChecked())) throw new Error('point should be preselected')
+    if ((await shop.getByRole('button', { name: 'Modifier' }).count()) !== 0) throw new Error('no summary card expected')
     if (RECORD) await shop.waitForTimeout(1200)
-    step('returning customer: delivery details prefilled, straight to confirm')
+    step('returning customer: editable fields prefilled')
     // Leave the cart empty for the rest of the run.
     await shop.evaluate(() => localStorage.removeItem('suricate:panier'))
   })

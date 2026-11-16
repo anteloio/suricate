@@ -1,17 +1,12 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { Logo } from '@/components/logo'
+import { PageTitle } from '@/components/page-title'
+import { StatusBadge } from '@/components/status-badge'
 import { formatEuros } from '@/lib/money'
 import { getOrderByCode, getSettings } from '@/lib/queries'
 import { formatDay } from '@/lib/time'
 
 export const dynamic = 'force-dynamic'
-
-const STATUS: Record<string, { label: string; className: string }> = {
-  confirmee: { label: 'Confirmée', className: 'bg-neutral-100 text-neutral-800' },
-  livree: { label: 'Livrée', className: 'bg-green-100 text-green-800' },
-  annulee: { label: 'Annulée', className: 'bg-red-100 text-red-800' },
-}
 
 export default async function OrderPage({ params, searchParams }: PageProps<'/commande/[code]'>) {
   const { code } = await params
@@ -19,13 +14,10 @@ export default async function OrderPage({ params, searchParams }: PageProps<'/co
   const [found, settings] = await Promise.all([getOrderByCode(code), getSettings()])
   if (!found) notFound()
   const { order, lines } = found
-  const status = STATUS[order.status]
 
   return (
-    <main className='mx-auto max-w-xl px-4 py-8'>
-      <div className='text-center'>
-        <Logo className='mx-auto h-12 w-auto' />
-      </div>
+    <main className='mx-auto max-w-2xl px-4 pt-6 pb-12'>
+      <PageTitle title={`Commande ${order.code}`} subtitle={<StatusBadge status={order.status} />} />
       {nouvelle && (
         <p className='mt-6 rounded-2xl bg-green-50 px-4 py-4 text-center text-green-900 ring-1 ring-green-200'>
           Merci {order.customerName.split(' ')[0]} ! Votre commande est bien enregistrée.
@@ -34,10 +26,6 @@ export default async function OrderPage({ params, searchParams }: PageProps<'/co
         </p>
       )}
       <section className='card mt-6 space-y-4'>
-        <div className='flex items-center justify-between'>
-          <h1 className='text-xl font-semibold'>Commande {order.code}</h1>
-          <span className={`rounded-full px-3 py-1 text-sm font-medium ${status.className}`}>{status.label}</span>
-        </div>
         <p className='text-neutral-700'>
           Livraison <strong>{formatDay(order.serviceDate)}</strong>, {settings.deliveryWindow}
           <br />
@@ -70,11 +58,8 @@ export default async function OrderPage({ params, searchParams }: PageProps<'/co
           Vous recevrez un message WhatsApp dès que votre commande sera arrivée.
         </p>
       )}
-      <p className='mt-6 flex justify-center gap-3'>
-        <Link href='/mes-commandes' className='btn-secondary'>
-          Mes commandes
-        </Link>
-        <Link href='/' className='btn-secondary'>
+      <p className='mt-8 text-center'>
+        <Link href='/' className='btn-primary inline-block'>
           Nouvelle commande
         </Link>
       </p>

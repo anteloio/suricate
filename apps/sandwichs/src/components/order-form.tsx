@@ -12,6 +12,7 @@ import {
   type PricedLine,
   type PricingRules,
 } from '@/lib/cart'
+import { CART_EVENT, CART_KEY } from '@/lib/cart-storage'
 import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/db/schema'
 import { type DeliveryPoint } from '@/lib/delivery-points'
 import { formatEuros } from '@/lib/money'
@@ -35,7 +36,6 @@ const EMPTY_CUSTOMER: Customer = {
 
 // Returning customers (mostly office workers) find their details and cart pre-filled.
 const CUSTOMER_KEY = 'suricate:client'
-const CART_KEY = 'suricate:panier'
 
 export function OrderForm({
   menu,
@@ -64,8 +64,6 @@ export function OrderForm({
   const [error, setError] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(false)
   const [step, setStep] = useState<Step>('menu')
-  // Details restored from this phone are shown as a summary; a new customer gets the fields.
-  const [editingDetails, setEditingDetails] = useState(true)
   const formRef = useRef<HTMLFormElement>(null)
 
   // Steps live in the URL hash (#panier, #livraison) so the phone's back button goes back a step.
@@ -106,7 +104,6 @@ export function OrderForm({
         }
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setCustomer(restored)
-        setEditingDetails(!(restored.customerName && restored.phone && restored.deliveryPointId))
       }
       const savedCart = localStorage.getItem(CART_KEY)
       if (savedCart) {
@@ -127,7 +124,9 @@ export function OrderForm({
   }, [menu, rules, deliveryPoints, defaultPointId])
 
   useEffect(() => {
-    if (loaded) localStorage.setItem(CART_KEY, JSON.stringify(cart))
+    if (!loaded) return
+    localStorage.setItem(CART_KEY, JSON.stringify(cart))
+    window.dispatchEvent(new Event(CART_EVENT))
   }, [cart, loaded])
 
   // Delivery details are remembered on this phone as soon as they are typed.
@@ -166,7 +165,6 @@ export function OrderForm({
     setError(null)
     if (!priced.ok) return setError(priced.error)
     if (!customer.customerName.trim() || !customer.phone.trim() || !customer.deliveryPointId) {
-      setEditingDetails(true)
       return setError('Indiquez votre prénom, votre téléphone et le point de livraison.')
     }
     if (!customer.paymentMethod) return setError('Choisissez un moyen de paiement.')
@@ -188,6 +186,7 @@ export function OrderForm({
       const history = parseHistory(localStorage.getItem(ORDER_HISTORY_KEY))
       localStorage.setItem(ORDER_HISTORY_KEY, JSON.stringify(addToHistory(history, result.code)))
       localStorage.removeItem(CART_KEY)
+      window.dispatchEvent(new Event(CART_EVENT))
       router.replace(`/commande/${result.code}?nouvelle=1`)
     } catch {
       setError('Connexion impossible. Vérifiez votre réseau et réessayez.')
@@ -198,14 +197,12 @@ export function OrderForm({
   const sandwiches = menu.filter((p) => p.category === 'sandwich')
   const drinks = menu.filter((p) => p.category === 'boisson')
   const desserts = menu.filter((p) => p.category === 'dessert')
-  const point = deliveryPoints.find((p) => p.id === customer.deliveryPointId)
-  const day = days.find((d) => d.date === serviceDate) ?? days[0]
 
   const lineKey = (l: PricedLine) => `${l.kind}:${l.productId}:${l.variant}:${l.drinkId}:${l.drinkVariant}`
   const formuleLines = priced.lines.filter((l) => l.kind === 'formule')
 
   return (
-    <form ref={formRef} onSubmit={submit} className='mt-6 scroll-mt-4 space-y-8'>
+    <form ref={formRef} onSubmit={submit} className='mt-6 scroll-mt-20 space-y-8'>
       <Progress step={step} canReview={itemCount > 0} onGo={goTo} />
 
       {step === 'menu' && (
@@ -310,75 +307,57 @@ export function OrderForm({
             </fieldset>
           ) : null}
 
-          {editingDetails ? (
-            <>
-              <div className='grid gap-4 sm:grid-cols-2'>
-                <Field label='Prénom'>
-                  <input
-                    className='input'
-                    required
-                    autoComplete='given-name'
-                    value={customer.customerName}
-                    onChange={(e) => update('customerName', e.target.value)}
-                  />
-                </Field>
-                <Field label='Téléphone' hint='Bruno vous prévient sur WhatsApp à l’arrivée.'>
-                  <input
-                    className='input'
-                    required
-                    type='tel'
-                    autoComplete='tel'
-                    value={customer.phone}
-                    onChange={(e) => update('phone', e.target.value)}
-                  />
-                </Field>
-              </div>
-              <fieldset>
-                <legend className='label'>Point de livraison</legend>
-                <div className='mt-2 grid gap-2'>
-                  {deliveryPoints.map((p) => {
-                    const selected = customer.deliveryPointId === p.id
-                    return (
-                      <label
-                        key={p.id}
-                        className={`flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 ring-1 ${selected ? 'bg-stone-50 ring-2 ring-neutral-900' : 'bg-white ring-neutral-200 hover:bg-stone-50'}`}
-                      >
-                        <input
-                          type='radio'
-                          name='deliveryPoint'
-                          required
-                          className='mt-1'
-                          checked={selected}
-                          onChange={() => update('deliveryPointId', p.id)}
-                        />
-                        <span>
-                          <span className='block font-medium'>{p.name}</span>
-                          <span className='block text-sm text-neutral-500'>{p.address}</span>
-                        </span>
-                      </label>
-                    )
-                  })}
-                </div>
-              </fieldset>
-            </>
-          ) : (
-            // Returning customer: details restored from this phone, one tap to change them.
-            <div className='card flex items-start justify-between gap-3'>
-              <div>
-                <p className='font-semibold'>
-                  {customer.customerName} · {customer.phone}
-                </p>
-                <p className='text-sm text-neutral-600'>{point?.name}</p>
-                <p className='text-sm text-neutral-500'>{point?.address}</p>
-                <p className='mt-1 text-sm text-neutral-600'>
-                  <span className='lowercase'>{day.label}</span>, {deliveryWindow}
-                </p>
-              </div>
-              <button type='button' className='btn-secondary shrink-0' onClick={() => setEditingDetails(true)}>
-                Modifier
-              </button>
+          {/* Always editable; a returning customer finds them prefilled from this phone. */}
+          <>
+            <div className='grid gap-4 sm:grid-cols-2'>
+              <Field label='Prénom'>
+                <input
+                  className='input'
+                  required
+                  autoComplete='given-name'
+                  value={customer.customerName}
+                  onChange={(e) => update('customerName', e.target.value)}
+                />
+              </Field>
+              <Field label='Téléphone' hint='Bruno vous prévient sur WhatsApp à l’arrivée.'>
+                <input
+                  className='input'
+                  required
+                  type='tel'
+                  autoComplete='tel'
+                  value={customer.phone}
+                  onChange={(e) => update('phone', e.target.value)}
+                />
+              </Field>
             </div>
-          )}
+            <fieldset>
+              <legend className='label'>Point de livraison</legend>
+              <div className='mt-2 grid gap-2'>
+                {deliveryPoints.map((p) => {
+                  const selected = customer.deliveryPointId === p.id
+                  return (
+                    <label
+                      key={p.id}
+                      className={`flex cursor-pointer items-start gap-3 rounded-xl px-4 py-3 ring-1 ${selected ? 'bg-stone-50 ring-2 ring-neutral-900' : 'bg-white ring-neutral-200 hover:bg-stone-50'}`}
+                    >
+                      <input
+                        type='radio'
+                        name='deliveryPoint'
+                        required
+                        className='mt-1'
+                        checked={selected}
+                        onChange={() => update('deliveryPointId', p.id)}
+                      />
+                      <span>
+                        <span className='block font-medium'>{p.name}</span>
+                        <span className='block text-sm text-neutral-500'>{p.address}</span>
+                      </span>
+                    </label>
+                  )
+                })}
+              </div>
+            </fieldset>
+          </>
 
           <fieldset>
             <legend className='label'>Paiement à la livraison</legend>

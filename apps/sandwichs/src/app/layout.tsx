@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { SiteHeader } from '@/components/site-header'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -11,7 +12,10 @@ export const viewport: Viewport = { themeColor: '#ffffff' }
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang='fr'>
-      <body className='min-h-dvh'>{children}</body>
+      <body className='min-h-dvh'>
+        <SiteHeader />
+        {children}
+      </body>
     </html>
   )
 }

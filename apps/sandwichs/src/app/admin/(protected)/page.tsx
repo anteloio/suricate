@@ -1,24 +1,13 @@
 import Link from 'next/link'
 import { DeliverButton } from '@/components/deliver-button'
 import { PrintButton } from '@/components/print-button'
+import { StatusBadge } from '@/components/status-badge'
 import { productionTotals } from '@/lib/cart'
-import type { OrderStatus } from '@/lib/db/schema'
 import { formatEuros } from '@/lib/money'
 import { getOrdersForDay, getRecentOrderDays, getSettings, getUpcomingOpenDays } from '@/lib/queries'
 import { formatCutoff, formatDay, parisNow, relativeDay } from '@/lib/time'
 import { deliveredWhatsAppLink } from '@/lib/whatsapp'
 import { changeOrderStatus } from '../actions'
-
-const STATUS_LABEL: Record<OrderStatus, string> = {
-  confirmee: 'À préparer',
-  livree: 'Livrée',
-  annulee: 'Annulée',
-}
-const STATUS_CLASS: Record<OrderStatus, string> = {
-  confirmee: 'bg-amber-100 text-amber-900',
-  livree: 'bg-green-100 text-green-900',
-  annulee: 'bg-red-100 text-red-900 line-through',
-}
 
 export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) {
   const { date: requested } = await searchParams
@@ -112,9 +101,7 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
                     })}
                   </p>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_CLASS[order.status]}`}>
-                  {STATUS_LABEL[order.status]}
-                </span>
+                <StatusBadge status={order.status} admin />
               </div>
               <ul className='mt-3'>
                 {lines.map((l) => (

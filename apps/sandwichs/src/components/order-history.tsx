@@ -5,12 +5,7 @@ import { useEffect, useState } from 'react'
 import { formatEuros } from '@/lib/money'
 import { ORDER_HISTORY_KEY, parseHistory, type HistoryOrder } from '@/lib/order-history'
 import { formatDay } from '@/lib/time'
-
-const STATUS: Record<HistoryOrder['status'], { label: string; className: string }> = {
-  confirmee: { label: 'En préparation', className: 'bg-amber-100 text-amber-900' },
-  livree: { label: 'Livrée', className: 'bg-green-100 text-green-800' },
-  annulee: { label: 'Annulée', className: 'bg-red-100 text-red-800' },
-}
+import { StatusBadge } from './status-badge'
 
 type State = { kind: 'loading' } | { kind: 'error' } | { kind: 'ready'; orders: HistoryOrder[] }
 
@@ -53,9 +48,7 @@ export function OrderHistory() {
               <p className='font-semibold'>
                 {formatDay(o.serviceDate)} · {o.code}
               </p>
-              <span className={`shrink-0 rounded-full px-3 py-1 text-sm font-medium ${STATUS[o.status].className}`}>
-                {STATUS[o.status].label}
-              </span>
+              <StatusBadge status={o.status} />
             </div>
             <ul className='mt-2 text-sm text-neutral-700'>
               {o.lines.map((l, i) => (

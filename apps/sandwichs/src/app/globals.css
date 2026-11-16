@@ -57,6 +57,12 @@ body {
   .btn-secondary {
     @apply rounded-full border border-neutral-300 bg-white px-4 py-2 text-sm font-medium transition hover:border-neutral-900 disabled:opacity-50;
   }
+  .nav-pill {
+    @apply flex h-9 items-center gap-1.5 rounded-full px-3 text-neutral-700 transition hover:bg-neutral-100;
+  }
+  .nav-pill-active {
+    @apply bg-neutral-900 text-white hover:bg-neutral-900;
+  }
   .card {
     @apply rounded-2xl bg-white p-4 ring-1 ring-neutral-200;
   }
