@@ -257,3 +257,19 @@ describe('cutoff countdown', () => {
     expect(formatCountdown(5)).toBe('00:05')
   })
 })
+
+describe('siteUrl', () => {
+  it('uses the production domain on Vercel, the current address elsewhere', async () => {
+    const { siteUrl } = await import('../site-url')
+    const before = process.env.VERCEL_PROJECT_PRODUCTION_URL
+    try {
+      delete process.env.VERCEL_PROJECT_PRODUCTION_URL
+      expect(siteUrl('http://localhost:3000')).toBe('http://localhost:3000')
+      process.env.VERCEL_PROJECT_PRODUCTION_URL = 'suricate.vercel.app'
+      expect(siteUrl('https://suricate-abc123-mdless.vercel.app')).toBe('https://suricate.vercel.app')
+    } finally {
+      if (before === undefined) delete process.env.VERCEL_PROJECT_PRODUCTION_URL
+      else process.env.VERCEL_PROJECT_PRODUCTION_URL = before
+    }
+  })
+})

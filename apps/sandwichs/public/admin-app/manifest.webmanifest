@@ -1,0 +1,16 @@
+{
+  "name": "Suricate Admin",
+  "short_name": "Suricate",
+  "description": "Commandes, jours, menu et réglages de Suricate Sandwichs.",
+  "id": "/admin",
+  "start_url": "/admin",
+  "scope": "/admin",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#171717",
+  "lang": "fr",
+  "icons": [
+    { "src": "/admin-app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/admin-app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

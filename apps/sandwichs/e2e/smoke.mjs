@@ -292,6 +292,68 @@ try {
     await shop.getByRole('link').filter({ hasText: code }).getByText('Livrée').waitFor()
     step('"Mes commandes" shows it delivered')
   })
+
+  // --- Bruno on his phone: installs the admin app, shares the QR code ---
+  const qr = await fetch(`${BASE}/qr`)
+  const qrBytes = new Uint8Array(await qr.arrayBuffer())
+  if (qr.headers.get('content-type') !== 'image/png' || qrBytes[1] !== 0x50 || qrBytes.length < 1000)
+    throw new Error('/qr should return a PNG')
+  step('/qr returns a PNG')
+
+  const brunoCtx = await browser.newContext({ viewport: PHONE_VIEWPORT, isMobile: true, hasTouch: true })
+  await hideDevBadge(brunoCtx)
+  // Stand-in for the phone's share sheet (headless Chrome has none): shows what would be shared.
+  await brunoCtx.addInitScript(() => {
+    navigator.canShare = (data) => Boolean(data?.files?.length)
+    navigator.share = async ({ files, text }) => {
+      const [file] = files
+      window.__shared = { name: file.name, type: file.type, size: file.size, text }
+      const sheet = Object.assign(document.createElement('div'), { id: 'share-sheet' })
+      sheet.style.cssText =
+        'position:fixed;inset:auto 0 0 0;z-index:99;background:#fff;border-radius:20px 20px 0 0;padding:20px;box-shadow:0 -8px 30px #0003;font:15px sans-serif;text-align:center'
+      sheet.innerHTML = '<p style="font-weight:600;margin:0 0 12px">Partager via…</p>'
+      const img = Object.assign(document.createElement('img'), { src: URL.createObjectURL(file) })
+      img.style.cssText = 'width:220px;height:220px;margin:auto;display:block;border:1px solid #ddd'
+      const caption = Object.assign(document.createElement('p'), { textContent: text })
+      caption.style.cssText = 'margin:12px 0;color:#555'
+      const apps = Object.assign(document.createElement('p'), { textContent: 'WhatsApp · Messages · Gmail · Instagram' })
+      sheet.append(img, caption, apps)
+      document.body.append(sheet)
+    }
+  })
+  const bruno = await brunoCtx.newPage()
+  await bruno.goto(`${BASE}/admin/login`)
+  await bruno.locator('input[name=password]').fill(PASSWORD)
+  await bruno.click('button:has-text("Se connecter")')
+  await bruno.waitForURL(`${BASE}/admin`)
+  if (!(await bruno.locator('link[rel=manifest]').getAttribute('href'))?.includes('admin-app'))
+    throw new Error('admin should link its web app manifest')
+  await scene(bruno, 'L’appli sur le téléphone de Bruno', 'Il installe l’admin, puis partage le QR code du site', async () => {
+    // Chrome fires beforeinstallprompt when the app is installable; headless Chrome never does.
+    await bruno.evaluate(() => {
+      const event = new Event('beforeinstallprompt', { cancelable: true })
+      event.prompt = async () => {
+        window.__prompted = true
+      }
+      event.userChoice = Promise.resolve({ outcome: 'accepted' })
+      window.dispatchEvent(event)
+    })
+    const banner = bruno.getByText('Installer l’appli sur ce téléphone')
+    await banner.waitFor()
+    await shot(bruno, 'admin-install-banner')
+    await bruno.getByRole('button', { name: 'Installer', exact: true }).click()
+    await banner.waitFor({ state: 'detached' })
+    if (!(await bruno.evaluate(() => window.__prompted))) throw new Error('install prompt not shown')
+    step('install banner opens the install prompt')
+
+    await bruno.getByRole('button', { name: 'QR code' }).click()
+    await bruno.locator('#share-sheet').waitFor()
+    const shared = await bruno.evaluate(() => window.__shared)
+    if (shared.type !== 'image/png' || shared.size < 1000 || !shared.text.includes(new URL(BASE).host))
+      throw new Error(`unexpected share: ${JSON.stringify(shared)}`)
+    if (RECORD) await bruno.waitForTimeout(2500)
+    step('QR code shared from the admin')
+  })
   console.log('\nAll good.')
 } catch (err) {
   console.error('\n✗ Smoke test failed:', err.message)
