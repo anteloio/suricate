@@ -1,13 +1,17 @@
-// End-to-end smoke test in the locally installed Google Chrome (no browser download).
+// End-to-end smoke test in the locally installed Google Chrome (no browser download). Everything
+// runs in a phone viewport: the app is only used on phones (customers and Bruno alike).
 // Usage: start the app (npm run dev), then: BASE_URL=http://localhost:3000 ADMIN_PASSWORD=admin node e2e/smoke.mjs
-// Opens the next delivery day as Bruno, places an order as a customer, then marks it delivered.
+// Opens the next delivery day as Bruno, places an order as a customer, marks it delivered, then
+// Bruno installs the admin app and shares the site's QR code.
 //
-// RECORD_DIR=/some/dir  records a narrated demo video instead of running at full speed: slower
-//                       actions, visible cursor and click highlights, a title card per scene. Each
-//                       scene is saved as a .webm, then joined into RECORD_DIR/demo.mp4 (needs ffmpeg).
+// RECORD_DIR=/some/dir  films the scenes as narrated videos (slower actions, visible cursor and
+//                       click highlights, a title card): one RECORD_DIR/NN-scene-title.mp4 per
+//                       scene (needs ffmpeg).
+// SCENES="9 qr"         films only the scenes whose number is listed or whose title contains one of
+//                       the words. The other scenes still run, unfilmed: they set up the data.
 // SCREENSHOTS_DIR=/dir  saves full-page screenshots of the main screens.
 import { spawnSync } from 'node:child_process'
-import { mkdirSync } from 'node:fs'
+import { mkdirSync, rmSync } from 'node:fs'
 import { chromium } from 'playwright-core'
 
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000'
@@ -15,8 +19,7 @@ const PASSWORD = process.env.ADMIN_PASSWORD ?? 'admin'
 const SHOTS = process.env.SCREENSHOTS_DIR
 const RECORD = process.env.RECORD_DIR
 
-const ADMIN_VIEWPORT = { width: 1000, height: 900 }
-const PHONE_VIEWPORT = { width: 390, height: 844 }
+const PHONE = { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }
 
 const browser = await chromium.launch({ channel: 'chrome', headless: true, slowMo: RECORD ? 350 : 0 })
 // Hides the Next.js dev-mode badge so it doesn't appear in recordings.
@@ -32,20 +35,35 @@ const hideDevBadge = (target) =>
 const shot = async (page, name) => SHOTS && page.screenshot({ path: `${SHOTS}/${name}.png`, fullPage: true })
 const step = (msg) => console.log(`✓ ${msg}`)
 
-// Types like a person when recording, fills instantly otherwise.
+// True while a scene is being filmed: actions slow down so the video can be followed.
+let filming = false
+
+// Types like a person when filming, fills instantly otherwise.
 const type = async (locator, text) => {
-  if (!RECORD) return locator.fill(text)
+  if (!filming) return locator.fill(text)
   await locator.fill('')
   await locator.pressSequentially(text, { delay: 45 })
 }
 
-// Runs one scene; when recording, films it into its own clip with a title card.
-const clips = []
+const plain = (text) =>
+  text
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+const WANTED = (process.env.SCENES ?? '').split(/[\s,]+/).filter(Boolean).map(plain)
+
+// Runs one scene; when filming, records it as its own video with a title card.
+let sceneCount = 0
 async function scene(page, title, description, fn) {
-  if (!RECORD) return fn()
-  const path = `${RECORD}/${String(clips.length + 1).padStart(2, '0')}.webm`
-  clips.push(path)
-  await page.screencast.start({ path, size: page.viewportSize() })
+  const number = ++sceneCount
+  console.log(`\n${number}. ${title}`)
+  const wanted = !WANTED.length || WANTED.some((w) => w === String(number) || plain(title).includes(w))
+  if (!RECORD || !wanted) return fn()
+  const slug = plain(title)
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+  const base = `${RECORD}/${String(number).padStart(2, '0')}-${slug}`
+  await page.screencast.start({ path: `${base}.webm`, size: page.viewportSize() })
   // Cursor + highlight on each click/fill; no action titles (they show raw locators).
   await page.screencast.showActions({
     duration: 900,
@@ -56,48 +74,58 @@ async function scene(page, title, description, fn) {
   })
   await page.screencast.showChapter(title, { description, duration: 2200 })
   await page.waitForTimeout(2400)
-  await fn()
+  filming = true
+  try {
+    await fn()
+  } finally {
+    filming = false
+  }
   await page.waitForTimeout(1500)
   await page.screencast.stop()
+  toMp4(base)
 }
 
-// Joins the clips into one mp4, centring each on a common canvas (phone and desktop sizes differ).
-function joinClips() {
-  const out = `${RECORD}/demo.mp4`
-  const { width: W, height: H } = ADMIN_VIEWPORT
-  const scaled = clips.map(
-    (_, i) =>
-      `[${i}:v]fps=25,scale=${W}:${H}:force_original_aspect_ratio=decrease,` +
-      `pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=0xe7e5e4,setsar=1[v${i}]`
+// Converts a scene's .webm to an .mp4 that plays everywhere (chat, phones).
+function toMp4(base) {
+  const res = spawnSync(
+    'ffmpeg',
+    ['-y', '-loglevel', 'error', '-i', `${base}.webm`, '-vf', 'fps=25,scale=trunc(iw/2)*2:trunc(ih/2)*2']
+      .concat(['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '24', '-movflags', '+faststart', `${base}.mp4`]),
+    { stdio: 'inherit' }
   )
-  const filter = `${scaled.join(';')};${clips.map((_, i) => `[v${i}]`).join('')}concat=n=${clips.length}:v=1:a=0[out]`
-  const args = ['-y', '-loglevel', 'error', ...clips.flatMap((c) => ['-i', c])]
-  args.push(
-    '-filter_complex',
-    filter,
-    '-map',
-    '[out]',
-    '-c:v',
-    'libx264',
-    '-pix_fmt',
-    'yuv420p',
-    '-crf',
-    '26',
-    '-movflags',
-    '+faststart',
-    out
-  )
-  const res = spawnSync('ffmpeg', args, { stdio: 'inherit' })
-  if (res.error || res.status !== 0) console.warn(`(ffmpeg unavailable or failed: clips are in ${RECORD})`)
-  else console.log(`\n🎬 ${out}`)
+  if (res.error || res.status !== 0) return console.warn(`(ffmpeg unavailable or failed: video is ${base}.webm)`)
+  rmSync(`${base}.webm`)
+  console.log(`🎬 ${base}.mp4`)
+}
+
+// Stand-in for the phone's share sheet (headless Chrome has none): shows what would be shared.
+function fakeShareSheet() {
+  navigator.canShare = (data) => Boolean(data?.files?.length)
+  navigator.share = async ({ files, text }) => {
+    const [file] = files
+    window.__shared = { name: file.name, type: file.type, size: file.size, text }
+    const sheet = Object.assign(document.createElement('div'), { id: 'share-sheet' })
+    sheet.style.cssText =
+      'position:fixed;inset:auto 0 0 0;z-index:99;background:#fff;border-radius:20px 20px 0 0;padding:20px;box-shadow:0 -8px 30px #0003;font:15px sans-serif;text-align:center'
+    sheet.innerHTML = '<p style="font-weight:600;margin:0 0 12px">Partager via…</p>'
+    const img = Object.assign(document.createElement('img'), { src: URL.createObjectURL(file) })
+    img.style.cssText = 'width:220px;height:220px;margin:auto;display:block;border:1px solid #ddd'
+    const caption = Object.assign(document.createElement('p'), { textContent: text })
+    caption.style.cssText = 'margin:12px 0;color:#555'
+    const apps = Object.assign(document.createElement('p'), { textContent: 'WhatsApp · Messages · Gmail · Instagram' })
+    sheet.append(img, caption, apps)
+    document.body.append(sheet)
+  }
 }
 
 try {
   if (RECORD) mkdirSync(RECORD, { recursive: true })
 
   // --- Bruno opens tomorrow ---
-  const admin = await browser.newPage({ viewport: ADMIN_VIEWPORT })
-  await hideDevBadge(admin)
+  const adminCtx = await browser.newContext(PHONE)
+  await hideDevBadge(adminCtx)
+  await adminCtx.addInitScript(fakeShareSheet)
+  const admin = await adminCtx.newPage()
   await admin.goto(`${BASE}/admin`)
   await admin.waitForURL('**/admin/login')
   await scene(admin, 'Bruno ouvre une journée', 'Connexion à /admin, puis ouverture de demain', async () => {
@@ -124,7 +152,7 @@ try {
   })
 
   // --- Customer orders on a phone ---
-  const ctx = await browser.newContext({ viewport: PHONE_VIEWPORT, isMobile: true, hasTouch: true })
+  const ctx = await browser.newContext(PHONE)
   await hideDevBadge(ctx)
   const shop = await ctx.newPage()
   await shop.goto(BASE)
@@ -145,7 +173,7 @@ try {
       await shop.getByRole('button', { name: 'Ajouter Cookie maison Chocolat', exact: true }).click()
       await bar.getByText('3 articles · 8,50').waitFor()
       await bar.getByText('Formule appliquée').waitFor()
-      if (RECORD) await shop.waitForTimeout(800)
+      if (filming) await shop.waitForTimeout(800)
       step('menu: formule applied automatically, 3 items = 8,50 €')
       await bar.getByRole('button', { name: 'Voir le panier' }).click()
     }
@@ -169,7 +197,7 @@ try {
     await shop.getByText('1 × Formule : Le Poulet Mayo + Eau minérale', { exact: false }).waitFor()
     await shop.getByText('Remise formule (× 2)').waitFor()
     await totalIs('15,00').waitFor()
-    if (RECORD) await shop.waitForTimeout(1200)
+    if (filming) await shop.waitForTimeout(1200)
     step('second formule with water: 15,00 €')
 
     // Removing the water drops back to one formule (and the water leaves the cart).
@@ -221,7 +249,7 @@ try {
     await shop.waitForURL(/\/mes-commandes$/)
     const mine = shop.getByRole('link').filter({ hasText: code })
     await mine.getByText('En préparation').waitFor()
-    if (RECORD) await shop.waitForTimeout(1200)
+    if (filming) await shop.waitForTimeout(1200)
     // Only the codes sent are returned; anything else is refused.
     const bad = await shop.request.post(`${BASE}/api/commandes/historique`, { data: { codes: ['*'] } })
     if (bad.status() !== 400) throw new Error(`history endpoint accepted a bad code (${bad.status()})`)
@@ -242,7 +270,7 @@ try {
       throw new Error('point should be preselected')
     if ((await shop.getByRole('button', { name: 'Modifier' }).count()) !== 0)
       throw new Error('no summary card expected')
-    if (RECORD) await shop.waitForTimeout(1200)
+    if (filming) await shop.waitForTimeout(1200)
     step('returning customer: editable fields prefilled')
     // Leave the cart empty for the rest of the run.
     await shop.evaluate(() => localStorage.removeItem('suricate:panier'))
@@ -275,7 +303,7 @@ try {
       await card.getByRole('button', { name: 'Livrée (WhatsApp au client)' }).click()
       await admin.waitForURL(/^https:\/\/wa\.me\/33612345678\?text=/, { timeout: 15000 })
       await admin.locator('#msg').getByText(`votre commande ${code} est arrivée`, { exact: false }).waitFor()
-      if (RECORD) await admin.waitForTimeout(1500)
+      if (filming) await admin.waitForTimeout(1500)
       step('WhatsApp opened with the message ready')
       await admin.goBack()
       const delivered = admin.locator('li.card').filter({ hasText: code })
@@ -300,32 +328,8 @@ try {
     throw new Error('/qr should return a PNG')
   step('/qr returns a PNG')
 
-  const brunoCtx = await browser.newContext({ viewport: PHONE_VIEWPORT, isMobile: true, hasTouch: true })
-  await hideDevBadge(brunoCtx)
-  // Stand-in for the phone's share sheet (headless Chrome has none): shows what would be shared.
-  await brunoCtx.addInitScript(() => {
-    navigator.canShare = (data) => Boolean(data?.files?.length)
-    navigator.share = async ({ files, text }) => {
-      const [file] = files
-      window.__shared = { name: file.name, type: file.type, size: file.size, text }
-      const sheet = Object.assign(document.createElement('div'), { id: 'share-sheet' })
-      sheet.style.cssText =
-        'position:fixed;inset:auto 0 0 0;z-index:99;background:#fff;border-radius:20px 20px 0 0;padding:20px;box-shadow:0 -8px 30px #0003;font:15px sans-serif;text-align:center'
-      sheet.innerHTML = '<p style="font-weight:600;margin:0 0 12px">Partager via…</p>'
-      const img = Object.assign(document.createElement('img'), { src: URL.createObjectURL(file) })
-      img.style.cssText = 'width:220px;height:220px;margin:auto;display:block;border:1px solid #ddd'
-      const caption = Object.assign(document.createElement('p'), { textContent: text })
-      caption.style.cssText = 'margin:12px 0;color:#555'
-      const apps = Object.assign(document.createElement('p'), { textContent: 'WhatsApp · Messages · Gmail · Instagram' })
-      sheet.append(img, caption, apps)
-      document.body.append(sheet)
-    }
-  })
-  const bruno = await brunoCtx.newPage()
-  await bruno.goto(`${BASE}/admin/login`)
-  await bruno.locator('input[name=password]').fill(PASSWORD)
-  await bruno.click('button:has-text("Se connecter")')
-  await bruno.waitForURL(`${BASE}/admin`)
+  const bruno = admin
+  await bruno.goto(`${BASE}/admin`)
   if (!(await bruno.locator('link[rel=manifest]').getAttribute('href'))?.includes('admin-app'))
     throw new Error('admin should link its web app manifest')
   await scene(bruno, 'L’appli sur le téléphone de Bruno', 'Il installe l’admin, puis partage le QR code du site', async () => {
@@ -351,7 +355,7 @@ try {
     const shared = await bruno.evaluate(() => window.__shared)
     if (shared.type !== 'image/png' || shared.size < 1000 || !shared.text.includes(new URL(BASE).host))
       throw new Error(`unexpected share: ${JSON.stringify(shared)}`)
-    if (RECORD) await bruno.waitForTimeout(2500)
+    if (filming) await bruno.waitForTimeout(2500)
     step('QR code shared from the admin')
   })
   console.log('\nAll good.')
@@ -360,5 +364,4 @@ try {
   process.exitCode = 1
 } finally {
   await browser.close()
-  if (RECORD && clips.length) joinClips()
 }

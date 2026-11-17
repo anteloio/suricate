@@ -42,7 +42,7 @@ npm test             # unit tests (pricing, cutoff/timezone, delivery points, Wh
 npm run typecheck
 npm run lint
 BASE_URL=http://localhost:3000 node e2e/smoke.mjs   # full flow in local Chrome
-npm run demo                                     # same flow recorded as .data/demo/demo.mp4
+npm run demo -- 9                                # film scene 9 as .data/demo/09-….mp4 (no args: all)
 ```
 
 ## Database changes

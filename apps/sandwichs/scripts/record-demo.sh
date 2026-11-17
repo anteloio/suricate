@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-# Records the full customer + admin flow as a narrated video, on a fresh empty database.
-# Usage: npm run demo   → prints the path of the .mp4 (default: .data/demo/demo.mp4)
+# Plays the whole customer + admin flow on a fresh empty database, in a phone viewport, and films
+# the scenes as narrated videos: one .data/demo/NN-scene-title.mp4 per scene.
+# Usage: npm run demo                → films every scene
+#        npm run demo -- 9           → films only scene 9 (numbers are printed as the flow runs)
+#        npm run demo -- qr livre    → films the scenes whose title contains one of the words
+# The flow always runs in full (later scenes need the data of earlier ones); only filming is chosen.
 # Needs Google Chrome and ffmpeg; Playwright may ask once for `npx playwright-core install ffmpeg`.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-OUT="${1:-$PWD/.data/demo}"
+OUT="$PWD/.data/demo"
 PORT="${DEMO_PORT:-3100}"
 DB_DIR="$PWD/.data/demo-db"
 LOG="$PWD/.data/demo-server.log"
@@ -25,4 +29,4 @@ done
 # Warm up the admin route so compilation doesn't show in the video.
 curl -sf -o /dev/null "http://localhost:$PORT/admin/login" || true
 
-BASE_URL="http://localhost:$PORT" RECORD_DIR="$OUT" node e2e/smoke.mjs
+SCENES="$*" BASE_URL="http://localhost:$PORT" RECORD_DIR="$OUT" node e2e/smoke.mjs

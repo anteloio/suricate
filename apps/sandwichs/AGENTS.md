@@ -25,15 +25,24 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - The database schema lives in `drizzle/` migrations. Never edit a migration that has run in
   production; change `src/lib/db/schema.ts` and add a new one with `npm run db:generate`.
 
+## Phones only
+
+The customer site and the admin are only used on phones. Design for a phone screen; the e2e flow
+and the demo videos run in a phone viewport (390×844).
+
 ## Show visual changes as a video
 
 The user doesn't read the code. After **any** change that is visible in the UI (customer site,
-admin, WhatsApp message), record the demo and show it in the chat:
+admin, WhatsApp message), film the scene that shows it and show only that video in the chat:
 
-1. Update `e2e/smoke.mjs` so the flow covers the change (each `scene(...)` becomes a chapter
-   with a French title card; keep the test passing without `RECORD_DIR`, too).
-2. Run `npm run demo`. It starts a dev server on port 3100 with a fresh, empty database, plays
-   the flow slowly with a visible cursor, and writes `.data/demo/demo.mp4`.
-3. Embed the video in your reply with its absolute path (`![Demo](/abs/path/.data/demo/demo.mp4)`)
-   and say in a few words what it shows. Check a few frames yourself first (e.g.
-   `ffmpeg -i demo.mp4 -vf fps=1/4,scale=400:-1,tile=5x4 -frames:v 1 sheet.png`).
+1. Update `e2e/smoke.mjs` so the flow covers the change: adjust the scene where it happens, or
+   add a `scene(...)` (its title and description are the video's French title card). Keep the
+   test passing without `RECORD_DIR`, too.
+2. Run `npm run demo -- <scene number or word from its title>` (e.g. `npm run demo -- 9` or
+   `npm run demo -- qr`). It starts a dev server on port 3100 with a fresh, empty database,
+   plays the whole flow (later scenes need earlier data) and films only the chosen scenes, each as
+   `.data/demo/NN-scene-title.mp4`. The paths are printed with 🎬.
+3. Embed only the relevant video(s) in your reply with the absolute path
+   (`![Demo](/abs/path/.data/demo/09-....mp4)`) and say in a few words what it shows. Check a
+   few frames yourself first (e.g.
+   `ffmpeg -i video.mp4 -vf fps=1/2,scale=200:-1,tile=6x2 -frames:v 1 sheet.png`).
