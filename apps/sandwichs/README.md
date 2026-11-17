@@ -48,7 +48,7 @@ On an empty database the initial menu (`src/lib/db/seed.ts`) and default setting
 
 ## Deployment (Vercel)
 
-Live at **https://suricate-sandwichs.vercel.app** (Vercel team `mdless`, project
+Live at **https://suricate.vercel.app** (Vercel team `mdless`, project
 `suricate-sandwichs`, functions in `fra1`).
 
 - Project root directory: `apps/sandwichs`. `vercel.json` skips builds when a commit doesn't
