@@ -17,8 +17,10 @@ Customers order before the cutoff (10h by default) for the days Bruno opens; the
 - **Bruno's area** `/admin` (password): orders per day with production totals and payment
   breakdown, "Livrée" button (marks the order delivered, then opens WhatsApp on Bruno's phone
   with a ready-to-send message to the customer, via a wa.me link; see `src/lib/whatsapp.ts`), days to open, menu editor, settings (cutoff, delivery window, formule price).
-- **QR code** `/qr`: PNG pointing to the production site (`src/lib/site-url.ts`). The "QR code"
-  button in the admin header opens the phone's share sheet with it (downloads it on a computer).
+- **QR code**: `/qr` is the bare PNG pointing to the production site (`src/lib/site-url.ts`);
+  `/qr/affiche` is a portrait poster (logo, QR, cutoff, address). The admin page `/admin/qr`
+  shows the poster with a "Partager" button that opens the phone's share sheet; the button is
+  hidden where the browser can't share files (a computer).
 - **Admin app**: `/admin` is installable on Bruno's phone (manifest and icons in
   `public/admin-app/`, no-cache service worker `public/admin-sw.js`). A banner in the admin
   offers the install when the browser allows it (Android/Chrome) or explains it (iPhone Safari).

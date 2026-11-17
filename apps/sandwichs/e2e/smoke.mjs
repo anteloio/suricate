@@ -109,7 +109,7 @@ function fakeShareSheet() {
       'position:fixed;inset:auto 0 0 0;z-index:99;background:#fff;border-radius:20px 20px 0 0;padding:20px;box-shadow:0 -8px 30px #0003;font:15px sans-serif;text-align:center'
     sheet.innerHTML = '<p style="font-weight:600;margin:0 0 12px">Partager via…</p>'
     const img = Object.assign(document.createElement('img'), { src: URL.createObjectURL(file) })
-    img.style.cssText = 'width:220px;height:220px;margin:auto;display:block;border:1px solid #ddd'
+    img.style.cssText = 'width:200px;margin:auto;display:block;border:1px solid #ddd;border-radius:8px'
     const caption = Object.assign(document.createElement('p'), { textContent: text })
     caption.style.cssText = 'margin:12px 0;color:#555'
     const apps = Object.assign(document.createElement('p'), { textContent: 'WhatsApp · Messages · Gmail · Instagram' })
@@ -332,7 +332,7 @@ try {
   await bruno.goto(`${BASE}/admin`)
   if (!(await bruno.locator('link[rel=manifest]').getAttribute('href'))?.includes('admin-app'))
     throw new Error('admin should link its web app manifest')
-  await scene(bruno, 'L’appli sur le téléphone de Bruno', 'Il installe l’admin, puis partage le QR code du site', async () => {
+  await scene(bruno, 'L’appli sur le téléphone de Bruno', 'Il installe l’admin, puis partage l’affiche avec le QR code', async () => {
     // Chrome fires beforeinstallprompt when the app is installable; headless Chrome never does.
     await bruno.evaluate(() => {
       const event = new Event('beforeinstallprompt', { cancelable: true })
@@ -350,14 +350,33 @@ try {
     if (!(await bruno.evaluate(() => window.__prompted))) throw new Error('install prompt not shown')
     step('install banner opens the install prompt')
 
-    await bruno.getByRole('button', { name: 'QR code' }).click()
+    await bruno.getByRole('link', { name: 'QR code' }).click()
+    await bruno.waitForURL('**/admin/qr')
+    const poster = bruno.getByRole('img', { name: /QR code vers/ })
+    await poster.waitFor()
+    await bruno.waitForFunction((img) => img.complete && img.naturalWidth === 1080, await poster.elementHandle())
+    await shot(bruno, 'admin-qr')
+    if (filming) await bruno.waitForTimeout(1200)
+    await bruno.getByRole('button', { name: 'Partager' }).click()
     await bruno.locator('#share-sheet').waitFor()
     const shared = await bruno.evaluate(() => window.__shared)
-    if (shared.type !== 'image/png' || shared.size < 1000 || !shared.text.includes(new URL(BASE).host))
+    if (shared.type !== 'image/png' || shared.size < 10000 || !shared.text.includes(new URL(BASE).host))
       throw new Error(`unexpected share: ${JSON.stringify(shared)}`)
     if (filming) await bruno.waitForTimeout(2500)
     step('QR code shared from the admin')
   })
+
+  // On a computer (no file sharing) the Partager button is hidden.
+  const desk = await browser.newPage({ viewport: { width: 1000, height: 800 } })
+  await desk.addInitScript(() => {
+    navigator.canShare = undefined
+  })
+  await desk.context().addCookies(await admin.context().cookies())
+  await desk.goto(`${BASE}/admin/qr`)
+  await desk.getByRole('img', { name: /QR code vers/ }).waitFor()
+  if ((await desk.getByRole('button', { name: 'Partager' }).count()) !== 0)
+    throw new Error('Partager should be hidden where files cannot be shared')
+  step('Partager hidden on a computer')
   console.log('\nAll good.')
 } catch (err) {
   console.error('\n✗ Smoke test failed:', err.message)
