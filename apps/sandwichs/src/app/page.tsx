@@ -1,7 +1,6 @@
 import { OrderForm } from '@/components/order-form'
 import { PageTitle } from '@/components/page-title'
 import { DELIVERY_POINTS } from '@/lib/delivery-points'
-import { formatEuros } from '@/lib/money'
 import { getMenu, getOrderableDays, getSettings } from '@/lib/queries'
 import { formatCutoff, relativeDay } from '@/lib/time'
 
@@ -21,7 +20,7 @@ export default async function HomePage() {
             Commandez avant <strong>{cutoff}</strong>, livraison <strong>{settings.deliveryWindow}</strong>{' '}
             {DELIVERY_POINTS.length === 1 ? `au ${DELIVERY_POINTS[0].name}` : 'au point de livraison de votre choix'}.
             <br />
-            Livraison offerte · minimum {formatEuros(settings.minOrderCents)} · paiement à la livraison
+            Livraison offerte · paiement à la livraison
           </>
         }
       />
@@ -48,7 +47,6 @@ export default async function HomePage() {
           days={days.map((date) => ({ date, label: relativeDay(date) }))}
           rules={{
             formulePriceCents: settings.formulePriceCents,
-            minOrderCents: settings.minOrderCents,
           }}
           deliveryPoints={[...DELIVERY_POINTS]}
           cutoff={cutoff}

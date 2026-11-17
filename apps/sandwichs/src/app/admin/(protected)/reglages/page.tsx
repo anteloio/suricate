@@ -12,7 +12,6 @@ export default async function SettingsPage() {
         values={{
           cutoff: `${hh}:${mm}`,
           deliveryWindow: s.deliveryWindow,
-          minOrder: (s.minOrderCents / 100).toFixed(2).replace('.', ','),
           formulePrice: (s.formulePriceCents / 100).toFixed(2).replace('.', ','),
         }}
       />

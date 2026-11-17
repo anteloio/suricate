@@ -115,7 +115,7 @@ export function OrderForm({
             .map((item) => cartItemSchema.safeParse(item))
             .filter((r) => r.success)
             .map((r) => r.data)
-            .filter((item) => priceCart([item], menu, { ...rules, minOrderCents: 0 }).ok)
+            .filter((item) => priceCart([item], menu, rules).ok)
         )
       }
     } catch {

@@ -6,7 +6,6 @@ import { saveSettings } from '../../actions'
 type Values = {
   cutoff: string
   deliveryWindow: string
-  minOrder: string
   formulePrice: string
 }
 
@@ -31,10 +30,6 @@ export function SettingsForm({ values }: { values: Values }) {
           defaultValue={values.formulePrice}
           className='input mt-1'
         />
-      </label>
-      <label>
-        <span className='label'>Commande minimum (€)</span>
-        <input name='minOrder' required inputMode='decimal' defaultValue={values.minOrder} className='input mt-1' />
       </label>
       <div className='flex items-center gap-3 sm:col-span-2'>
         <button disabled={pending} className='btn-primary'>

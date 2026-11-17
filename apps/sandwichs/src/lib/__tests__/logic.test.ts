@@ -68,7 +68,7 @@ const menu: MenuProduct[] = [
     active: false,
   },
 ]
-const rules = { formulePriceCents: 650, minOrderCents: 650 }
+const rules = { formulePriceCents: 650 }
 
 const item = (productId: number, quantity = 1, variant?: string) => ({ productId, variant, quantity })
 
@@ -121,10 +121,9 @@ describe('priceCart', () => {
     expect(priceCart([item(3, 5, 'Pomme')], menu, rules).ok).toBe(false)
   })
 
-  it('enforces the minimum order', () => {
+  it('has no minimum order: a single cheap item is fine', () => {
     const r = priceCart([item(1)], menu, rules)
-    expect(r).toMatchObject({ ok: false, error: `Commande minimum : ${formatEuros(650)}.` })
-    expect(priceCart([item(1, 2)], menu, rules).ok).toBe(true)
+    expect(r.ok).toBe(true)
   })
 
   it('rejects inactive or unknown products and an empty cart', () => {
@@ -210,7 +209,13 @@ describe('whatsapp message', () => {
     expect(text.length).toBeLessThanOrEqual(160)
   })
   it('builds a wa.me link with the number in international format', () => {
-    const order = { code: 'AB2CD', customerName: 'Marie', phone: '06 12 34 56 78', deliveryPointId: null, addressLabel: 'Ici' }
+    const order = {
+      code: 'AB2CD',
+      customerName: 'Marie',
+      phone: '06 12 34 56 78',
+      deliveryPointId: null,
+      addressLabel: 'Ici',
+    }
     const url = deliveredWhatsAppLink(order)!
     expect(url.startsWith('https://wa.me/33612345678?text=')).toBe(true)
     expect(decodeURIComponent(url.split('?text=')[1])).toBe(deliveredText(order))

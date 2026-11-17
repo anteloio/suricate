@@ -1,7 +1,6 @@
 // Cart pricing shared by the browser (display) and the server (source of truth).
 import { z } from 'zod'
 import type { Product } from './db/schema'
-import { formatEuros } from './money'
 
 export const MAX_QUANTITY = 20
 
@@ -31,7 +30,7 @@ export type PricedLine = {
   unitPriceCents: number
 }
 
-export type PricingRules = { formulePriceCents: number; minOrderCents: number }
+export type PricingRules = { formulePriceCents: number }
 
 type Totals = {
   /** What Bruno prepares and bills: formule lines first, then products bought separately. */
@@ -95,9 +94,10 @@ export function priceCart(items: CartItem[], menu: MenuProduct[], rules: Pricing
   const subtotalCents = units.reduce((sum, u) => sum + u.product.priceCents, 0)
 
   // Most expensive first; ties broken by menu id so the result never depends on the cart order.
-  const byPriceDesc = (a: Unit, b: Unit) =>
-    b.product.priceCents - a.product.priceCents || a.product.id - b.product.id
-  const sandwiches = units.filter((u) => u.product.category === 'sandwich' && u.product.formulaEligible).sort(byPriceDesc)
+  const byPriceDesc = (a: Unit, b: Unit) => b.product.priceCents - a.product.priceCents || a.product.id - b.product.id
+  const sandwiches = units
+    .filter((u) => u.product.category === 'sandwich' && u.product.formulaEligible)
+    .sort(byPriceDesc)
   const drinks = units.filter((u) => u.product.category === 'boisson').sort(byPriceDesc)
 
   const formules: { sandwich: Unit; drink: Unit }[] = []
@@ -157,9 +157,6 @@ export function priceCart(items: CartItem[], menu: MenuProduct[], rules: Pricing
     formulaDiscountCents: subtotalCents - totalCents,
     formulaCount: formules.length,
     totalCents,
-  }
-  if (totalCents < rules.minOrderCents) {
-    return fail(`Commande minimum : ${formatEuros(rules.minOrderCents)}.`, totals)
   }
   return { ok: true, ...totals }
 }

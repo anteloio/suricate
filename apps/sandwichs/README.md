@@ -16,7 +16,7 @@ Customers order before the cutoff (10h by default) for the days Bruno opens; the
   entry there to offer a new point; keep existing ids, they are stored on orders.
 - **Bruno's area** `/admin` (password): orders per day with production totals and payment
   breakdown, "Livrée" button (marks the order delivered, then opens WhatsApp on Bruno's phone
-  with a ready-to-send message to the customer, via a wa.me link; see `src/lib/whatsapp.ts`), days to open, menu editor, settings (cutoff, delivery window, formule price, minimum order).
+  with a ready-to-send message to the customer, via a wa.me link; see `src/lib/whatsapp.ts`), days to open, menu editor, settings (cutoff, delivery window, formule price).
 
 Stack: Next.js 16 (App Router) · TypeScript · Tailwind 4 · Drizzle ORM · Postgres
 (Neon in production, embedded PGlite locally). Hosted on Vercel.

@@ -34,6 +34,7 @@ export const settings = pgTable('settings', {
   id: integer('id').primaryKey().default(1),
   cutoffMinutes: integer('cutoff_minutes').notNull().default(600), // 10:00 Paris time
   deliveryWindow: text('delivery_window').notNull().default('12h – 13h'),
+  // Unused: there is no minimum order. Kept so older deployments keep working while a new one rolls out.
   minOrderCents: integer('min_order_cents').notNull().default(650),
   formulePriceCents: integer('formule_price_cents').notNull().default(650),
   // Unused since customers pick a delivery point (src/lib/delivery-points.ts); kept so older
