@@ -6,11 +6,13 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { CART_EVENT, CART_KEY, cartCount } from '@/lib/cart-storage'
+import { CutoffCountdown } from './cutoff-countdown'
 
 /** The one top bar of the customer site: logo → menu, cart (when not empty), Mes commandes. */
 export function SiteHeader() {
   const pathname = usePathname()
   const [count, setCount] = useState(0)
+  const [hash, setHash] = useState('')
 
   useEffect(() => {
     const read = () => setCount(cartCount(localStorage.getItem(CART_KEY)))
@@ -23,9 +25,18 @@ export function SiteHeader() {
     }
   }, [])
 
+  // The menu's steps live in the hash (#panier, #livraison): the cart pill is "selected" on #panier.
+  useEffect(() => {
+    const read = () => setHash(window.location.hash.slice(1))
+    read()
+    window.addEventListener('hashchange', read)
+    return () => window.removeEventListener('hashchange', read)
+  }, [pathname])
+
   if (pathname.startsWith('/admin')) return null
   const onMenu = pathname === '/'
   const onHistory = pathname === '/mes-commandes'
+  const onCart = onMenu && hash === 'panier'
 
   return (
     <header className='no-print sticky top-0 z-20 border-b border-neutral-200 bg-white/95 backdrop-blur'>
@@ -48,7 +59,12 @@ export function SiteHeader() {
           {count > 0 && (
             // A plain link so the order form sees the hash change and opens the cart step.
             // eslint-disable-next-line @next/next/no-html-link-for-pages
-            <a href='/#panier' className='nav-pill' aria-label={`Panier, ${count} article${count > 1 ? 's' : ''}`}>
+            <a
+              href='/#panier'
+              aria-current={onCart ? 'page' : undefined}
+              className={`nav-pill ${onCart ? 'nav-pill-active' : ''}`}
+              aria-label={`Panier, ${count} article${count > 1 ? 's' : ''}`}
+            >
               <ShoppingBag className='size-5' strokeWidth={2} aria-hidden />
               <span className='tabular-nums'>{count}</span>
             </a>
@@ -62,6 +78,7 @@ export function SiteHeader() {
           </Link>
         </nav>
       </div>
+      <CutoffCountdown />
     </header>
   )
 }

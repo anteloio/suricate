@@ -4,7 +4,7 @@ import { DELIVERY_POINTS, findDeliveryPoint } from '../delivery-points'
 import { formatEuros, parseEuros } from '../money'
 import { addToHistory, MAX_HISTORY, parseHistory } from '../order-history'
 import { deliveredText, deliveredWhatsAppLink, toE164 } from '../whatsapp'
-import { addDays, formatCutoff, orderableDays, parisNow } from '../time'
+import { addDays, formatCountdown, formatCutoff, orderableDays, parisNow, secondsBeforeCutoff } from '../time'
 
 const menu: MenuProduct[] = [
   {
@@ -232,5 +232,28 @@ describe('order history (Mes commandes)', () => {
     expect(addToHistory(['AB2CD', 'XY3ZW'], 'XY3ZW')).toEqual(['XY3ZW', 'AB2CD'])
     const many = Array.from({ length: MAX_HISTORY }, (_, i) => `A${String(i).padStart(4, '0')}`)
     expect(addToHistory(many, 'NEW22')).toHaveLength(MAX_HISTORY)
+  })
+})
+
+describe('cutoff countdown', () => {
+  const open = ['2026-11-16']
+  // Cutoff 10:00 Paris = 09:00 UTC in winter.
+  it('counts down during the last 30 minutes of an open day', () => {
+    expect(secondsBeforeCutoff(open, 600, new Date('2026-11-16T08:47:26Z'))).toBe(12 * 60 + 34)
+    expect(secondsBeforeCutoff(open, 600, new Date('2026-11-16T08:30:00Z'))).toBe(30 * 60)
+    expect(secondsBeforeCutoff(open, 600, new Date('2026-11-16T08:59:59Z'))).toBe(1)
+  })
+  it('is hidden earlier, after the cutoff, or when today is not open', () => {
+    expect(secondsBeforeCutoff(open, 600, new Date('2026-11-16T08:29:59Z'))).toBeNull()
+    expect(secondsBeforeCutoff(open, 600, new Date('2026-11-16T09:00:00Z'))).toBeNull()
+    expect(secondsBeforeCutoff(['2026-11-17'], 600, new Date('2026-11-16T08:50:00Z'))).toBeNull()
+  })
+  it('uses Paris time in summer too', () => {
+    // 10:00 Paris = 08:00 UTC in July.
+    expect(secondsBeforeCutoff(['2026-07-01'], 600, new Date('2026-07-01T07:50:00Z'))).toBe(600)
+  })
+  it('formats mm:ss', () => {
+    expect(formatCountdown(754)).toBe('12:34')
+    expect(formatCountdown(5)).toBe('00:05')
   })
 })

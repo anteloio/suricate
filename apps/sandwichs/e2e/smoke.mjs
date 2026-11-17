@@ -156,6 +156,8 @@ try {
     await shop.getByText('1 × Formule : Le Poulet Mayo + Oasis (Cassis)', { exact: false }).waitFor()
     await shop.getByText('Remise formule').waitFor()
     await totalIs('8,50').waitFor()
+    // The cart pill in the top bar is selected, like "Mes commandes" on its page.
+    await shop.locator('header a[href="/#panier"][aria-current="page"]').waitFor()
     step('cart review: formule line, discount, total 8,50 €')
 
     // A second sandwich alone is at its own price, until a drink joins it.

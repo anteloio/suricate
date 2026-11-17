@@ -55,3 +55,29 @@ export function relativeDay(date: string, now: ParisNow = parisNow()): string {
   if (date === addDays(now.date, 1)) return 'Demain'
   return formatDay(date)
 }
+
+/** Paris calendar date and seconds since midnight (for the live countdown). */
+export function parisClock(now: Date = new Date()): { date: string; seconds: number } {
+  const { date, minutes } = parisNow(now)
+  return { date, seconds: minutes * 60 + now.getUTCSeconds() }
+}
+
+/** Last 30 minutes before the cutoff of an open day: the top bar shows a countdown. */
+export const COUNTDOWN_SECONDS = 30 * 60
+
+/**
+ * Seconds left to order for today, only when today is an open day and the cutoff is less than
+ * 30 minutes away; null otherwise (not open today, too early, or already past the cutoff).
+ */
+export function secondsBeforeCutoff(openDays: string[], cutoffMinutes: number, now: Date = new Date()): number | null {
+  const clock = parisClock(now)
+  if (!openDays.includes(clock.date)) return null
+  const left = cutoffMinutes * 60 - clock.seconds
+  return left > 0 && left <= COUNTDOWN_SECONDS ? left : null
+}
+
+/** 754 → "12:34" */
+export function formatCountdown(seconds: number): string {
+  const s = Math.max(0, Math.floor(seconds))
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`
+}
