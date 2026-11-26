@@ -1,6 +1,6 @@
 {
-  "name": "Suricate Admin",
-  "short_name": "Suricate",
+  "name": "Suricate Pro",
+  "short_name": "Suricate Pro",
   "description": "Commandes, jours, menu et réglages de Suricate Sandwichs.",
   "id": "/admin",
   "start_url": "/admin",

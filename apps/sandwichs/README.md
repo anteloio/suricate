@@ -29,9 +29,13 @@ when they order.
   `/qr/affiche` is a portrait poster (logo, QR, cutoff, address). The admin page `/admin/qr`
   shows the poster with a "Partager" button that opens the phone's share sheet; the button is
   hidden where the browser can't share files (a computer).
-- **Admin app**: `/admin` is installable on Bruno's phone (manifest and icons in
-  `public/admin-app/`, no-cache service worker `public/admin-sw.js`). A banner in the admin
-  offers the install when the browser allows it (Android/Chrome) or explains it (iPhone Safari).
+- **Two installable apps**, same icon, separate manifests and service workers, and each its own banner
+  (Android/Chrome: one tap; iPhone Safari: explains Share → home screen) and dismissal key:
+  - **Suricate Pro** (Bruno): `/admin`, manifest `public/admin-app/manifest.webmanifest` (scope `/admin`),
+    service worker `public/admin-sw.js`.
+  - **Suricate** (customers, to order): opens on `/`, manifest `public/client-app/manifest.webmanifest`
+    (scope `/`), service worker `public/client-sw.js`. The banner shows on the menu and "Mes commandes".
+  - The shared banner is `src/components/install-banner.tsx`; both service workers cache nothing.
 
 Stack: Next.js 16 (App Router) · TypeScript · Tailwind 4 · Drizzle ORM · Postgres
 (Neon in production, embedded PGlite locally). Hosted on Vercel.

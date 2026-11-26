@@ -1,3 +1,4 @@
+import { CustomerInstallBanner } from '@/components/customer-install-banner'
 import { OrderForm } from '@/components/order-form'
 import { PageTitle } from '@/components/page-title'
 import { getDeliveryPoints, getMenu, getOrderableDays, getSettings } from '@/lib/queries'
@@ -18,6 +19,7 @@ export default async function HomePage() {
 
   return (
     <main className='mx-auto max-w-2xl px-4 pt-6 pb-40'>
+      <CustomerInstallBanner />
       <PageTitle
         title='Nos sandwichs'
         subtitle={

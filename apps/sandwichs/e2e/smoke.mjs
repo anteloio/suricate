@@ -224,6 +224,29 @@ try {
     'Étape 1 : le menu',
     'Il ajoute ses articles avec les + : la formule se fait toute seule',
     async () => {
+      // The customer site is an installable app too ("Suricate", not "Suricate Pro").
+      if (!(await shop.locator('link[rel=manifest]').getAttribute('href'))?.includes('client-app'))
+        throw new Error('customer site should link its own web app manifest')
+      // Dispatched again until the page has hydrated and listens to it.
+      const installBanner = shop.getByText('Installez l’appli pour commander plus vite')
+      for (let i = 0; i < 20 && !(await installBanner.isVisible()); i++) {
+        await shop.evaluate(() => {
+          const event = new Event('beforeinstallprompt', { cancelable: true })
+          event.prompt = async () => {
+            window.__clientPrompted = true
+          }
+          event.userChoice = Promise.resolve({ outcome: 'accepted' })
+          window.dispatchEvent(event)
+        })
+        await shop.waitForTimeout(300)
+      }
+      await installBanner.waitFor()
+      await shot(shop, 'client-install-banner')
+      if (filming) await shop.waitForTimeout(1500)
+      await shop.getByRole('button', { name: 'Installer', exact: true }).click()
+      await installBanner.waitFor({ state: 'detached' })
+      if (!(await shop.evaluate(() => window.__clientPrompted))) throw new Error('install prompt not shown')
+      step('customer install banner opens the install prompt')
       await shot(shop, 'client-menu')
       await shop.getByRole('button', { name: 'Ajouter Le Poulet Mayo', exact: true }).click()
       await shop.getByRole('button', { name: 'Ajouter Oasis Cassis', exact: true }).click()
@@ -407,15 +430,19 @@ try {
     'Il installe l’admin, puis partage l’affiche avec le QR code',
     async () => {
       // Chrome fires beforeinstallprompt when the app is installable; headless Chrome never does.
-      await bruno.evaluate(() => {
-        const event = new Event('beforeinstallprompt', { cancelable: true })
-        event.prompt = async () => {
-          window.__prompted = true
-        }
-        event.userChoice = Promise.resolve({ outcome: 'accepted' })
-        window.dispatchEvent(event)
-      })
+      // Dispatched again until the page has hydrated and listens to it.
       const banner = bruno.getByText('Installer l’appli sur ce téléphone')
+      for (let i = 0; i < 20 && !(await banner.isVisible()); i++) {
+        await bruno.evaluate(() => {
+          const event = new Event('beforeinstallprompt', { cancelable: true })
+          event.prompt = async () => {
+            window.__prompted = true
+          }
+          event.userChoice = Promise.resolve({ outcome: 'accepted' })
+          window.dispatchEvent(event)
+        })
+        await bruno.waitForTimeout(300)
+      }
       await banner.waitFor()
       await shot(bruno, 'admin-install-banner')
       await bruno.getByRole('button', { name: 'Installer', exact: true }).click()

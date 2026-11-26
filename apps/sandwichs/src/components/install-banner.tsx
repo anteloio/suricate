@@ -4,7 +4,6 @@ import { Download, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 // "Plus tard" hides the banner for a day on this phone (time of the dismissal, in ms).
-const DISMISSED_KEY = 'suricate:admin-install-dismissed'
 const DISMISS_MS = 24 * 60 * 60 * 1000
 
 /** Chrome/Android's install prompt event (not in the TypeScript DOM types yet). */
@@ -12,23 +11,33 @@ type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Pro
 
 type Offer = { kind: 'prompt'; event: InstallPromptEvent } | { kind: 'ios' }
 
+type InstallBannerProps = {
+  /** localStorage key of the dismissal time: one per app (admin, customer site). */
+  storageKey: string
+  /** Service worker script and its scope: one per app, so the two installs stay separate. */
+  serviceWorker: { url: string; scope: string }
+  icon: string
+  title: string
+  description: string
+}
+
 /**
- * Offers to install the admin on the phone's home screen, when the browser allows it and the
- * admin isn't already running as the installed app. Android/Chrome: one tap opens the system
- * install dialog. iPhone (Safari has no install API): explains the Share → home screen steps.
+ * Offers to install an app (admin or customer site) on the phone's home screen, when the browser
+ * allows it and it isn't already running as the installed app. Android/Chrome: one tap opens the
+ * system install dialog. iPhone (Safari has no install API): explains the Share → home screen steps.
  */
-export function InstallBanner() {
+export function InstallBanner({ storageKey, serviceWorker, icon, title, description }: InstallBannerProps) {
   const [offer, setOffer] = useState<Offer | null>(null)
 
   useEffect(() => {
-    navigator.serviceWorker?.register('/admin-sw.js', { scope: '/admin' }).catch(() => {})
+    navigator.serviceWorker?.register(serviceWorker.url, { scope: serviceWorker.scope }).catch(() => {})
 
     const installed =
       window.matchMedia('(display-mode: standalone)').matches ||
       (navigator as Navigator & { standalone?: boolean }).standalone === true
     let dismissed = false
     try {
-      dismissed = Date.now() - Number(localStorage.getItem(DISMISSED_KEY) ?? 0) < DISMISS_MS
+      dismissed = Date.now() - Number(localStorage.getItem(storageKey) ?? 0) < DISMISS_MS
     } catch {}
     if (installed || dismissed) return
 
@@ -50,13 +59,13 @@ export function InstallBanner() {
       window.removeEventListener('beforeinstallprompt', onPrompt)
       window.removeEventListener('appinstalled', onInstalled)
     }
-  }, [])
+  }, [storageKey, serviceWorker.url, serviceWorker.scope])
 
   if (!offer) return null
 
   function dismiss() {
     try {
-      localStorage.setItem(DISMISSED_KEY, String(Date.now()))
+      localStorage.setItem(storageKey, String(Date.now()))
     } catch {}
     setOffer(null)
   }
@@ -73,12 +82,12 @@ export function InstallBanner() {
   return (
     <aside className='no-print mb-4 flex items-start gap-3 rounded-2xl bg-neutral-900 p-4 text-white'>
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src='/admin-app/icon-192.png' alt='' className='size-11 shrink-0 rounded-xl' />
+      <img src={icon} alt='' className='size-11 shrink-0 rounded-xl' />
       <div className='min-w-0 flex-1'>
-        <p className='font-semibold'>Installer l’appli sur ce téléphone</p>
+        <p className='font-semibold'>{title}</p>
         {offer.kind === 'prompt' ? (
           <>
-            <p className='text-sm text-neutral-300'>L’espace Bruno s’ouvre en un geste depuis l’écran d’accueil.</p>
+            <p className='text-sm text-neutral-300'>{description}</p>
             <button
               type='button'
               onClick={install}
