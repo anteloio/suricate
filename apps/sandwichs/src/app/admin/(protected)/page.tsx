@@ -120,7 +120,8 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
                 <p>
                   📍{' '}
                   <a className='underline' target='_blank' href={mapsUrl(order.addressLabel)}>
-                    {order.addressLabel}
+                    {/* Just the point's name; the link opens the full address in Maps. */}
+                    {pointNames.get(order.deliveryPointId ?? '') ?? order.addressLabel}
                   </a>
                   {order.addressDetails && <> · {order.addressDetails}</>}
                 </p>
