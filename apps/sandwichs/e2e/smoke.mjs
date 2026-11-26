@@ -145,8 +145,12 @@ try {
     await admin.waitForURL(`${BASE}/admin`)
     step('admin login')
 
+    // On a phone the admin menu is a drawer behind the top bar's menu button.
+    await admin.getByRole('button', { name: 'Ouvrir le menu' }).click()
     await admin.getByRole('link', { name: 'Jours' }).click()
     await admin.waitForURL('**/admin/jours')
+    await admin.getByRole('button', { name: 'Ouvrir le menu' }).waitFor()
+    step('admin menu drawer')
     const tomorrowRow = admin
       .locator('li')
       .filter({ has: admin.locator('form') })
@@ -374,6 +378,7 @@ try {
       if (!(await bruno.evaluate(() => window.__prompted))) throw new Error('install prompt not shown')
       step('install banner opens the install prompt')
 
+      await bruno.getByRole('button', { name: 'Ouvrir le menu' }).click()
       await bruno.getByRole('link', { name: 'QR code' }).click()
       await bruno.waitForURL('**/admin/qr')
       const poster = bruno.getByRole('img', { name: /QR code vers/ })
@@ -399,6 +404,10 @@ try {
   await desk.context().addCookies(await admin.context().cookies())
   await desk.goto(`${BASE}/admin/qr`)
   await desk.getByRole('img', { name: /QR code vers/ }).waitFor()
+  // On a computer the admin menu is a sidebar, always visible, with the current page marked.
+  await desk.locator('aside a[aria-current=page]', { hasText: 'QR code' }).waitFor()
+  await shot(desk, 'admin-desktop-sidebar')
+  step('admin sidebar on a computer')
   if ((await desk.getByRole('button', { name: 'Partager' }).count()) !== 0)
     throw new Error('Partager should be hidden where files cannot be shared')
   step('Partager hidden on a computer')

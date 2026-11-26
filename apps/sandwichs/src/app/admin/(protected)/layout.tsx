@@ -1,41 +1,15 @@
-import Link from 'next/link'
-import { Logo } from '@/components/logo'
+import { AdminShell } from '@/components/admin-shell'
 import { InstallBanner } from '@/components/install-banner'
 import { requireAdmin } from '@/lib/auth'
-import { logout } from '../actions'
 
 export const dynamic = 'force-dynamic'
-
-const NAV = [
-  { href: '/admin', label: 'Commandes' },
-  { href: '/admin/jours', label: 'Jours' },
-  { href: '/admin/menu', label: 'Menu' },
-  { href: '/admin/reglages', label: 'Réglages' },
-  { href: '/admin/qr', label: 'QR code' },
-]
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin()
   return (
-    <div className='mx-auto max-w-3xl px-4 pb-16'>
-      <header className='no-print flex flex-wrap items-center justify-between gap-3 py-4'>
-        <Logo href='/admin' className='h-9 w-auto' />
-        <nav className='flex flex-wrap items-center gap-1 text-sm'>
-          {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className='rounded-full px-3 py-1.5 hover:bg-neutral-200'>
-              {n.label}
-            </Link>
-          ))}
-          <Link href='/' target='_blank' className='rounded-full px-3 py-1.5 text-neutral-500 hover:bg-neutral-200'>
-            Site ↗
-          </Link>
-          <form action={logout}>
-            <button className='rounded-full px-3 py-1.5 text-neutral-500 hover:bg-neutral-200'>Déconnexion</button>
-          </form>
-        </nav>
-      </header>
+    <AdminShell>
       <InstallBanner />
       {children}
-    </div>
+    </AdminShell>
   )
 }
