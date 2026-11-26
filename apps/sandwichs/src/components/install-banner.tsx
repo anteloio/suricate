@@ -3,7 +3,9 @@
 import { Download, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
+// "Plus tard" hides the banner for a day on this phone (time of the dismissal, in ms).
 const DISMISSED_KEY = 'suricate:admin-install-dismissed'
+const DISMISS_MS = 24 * 60 * 60 * 1000
 
 /** Chrome/Android's install prompt event (not in the TypeScript DOM types yet). */
 type InstallPromptEvent = Event & { prompt: () => Promise<void>; userChoice: Promise<{ outcome: string }> }
@@ -26,7 +28,7 @@ export function InstallBanner() {
       (navigator as Navigator & { standalone?: boolean }).standalone === true
     let dismissed = false
     try {
-      dismissed = localStorage.getItem(DISMISSED_KEY) === '1'
+      dismissed = Date.now() - Number(localStorage.getItem(DISMISSED_KEY) ?? 0) < DISMISS_MS
     } catch {}
     if (installed || dismissed) return
 
@@ -54,7 +56,7 @@ export function InstallBanner() {
 
   function dismiss() {
     try {
-      localStorage.setItem(DISMISSED_KEY, '1')
+      localStorage.setItem(DISMISSED_KEY, String(Date.now()))
     } catch {}
     setOffer(null)
   }
