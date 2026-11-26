@@ -1,13 +1,14 @@
 import 'server-only'
 import { randomInt } from 'node:crypto'
-import { eq } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { z } from 'zod'
 
 z.config(z.locales.fr())
 import { cartItemSchema, priceCart } from './cart'
-import { db, orderLines, orders, PAYMENT_METHODS, type OrderStatus } from './db'
+import { db, orderLines, orders, type Order, type OrderStatus } from './db'
 import { findDeliveryPoint } from './delivery-points'
 import { getMenu, getOrderableDays, getSettings } from './queries'
+import { createCheckout, getCheckoutStatus } from './sumup'
 
 export const orderInputSchema = z.object({
   serviceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -21,20 +22,23 @@ export const orderInputSchema = z.object({
       'Numéro de téléphone invalide.'
     ),
   deliveryPointId: z.string({ error: 'Choisissez un point de livraison.' }).min(1, 'Choisissez un point de livraison.'),
-  paymentMethod: z.enum(PAYMENT_METHODS),
   notes: z.string().trim().max(500).default(''),
   website: z.string().max(0).optional(), // honeypot: bots fill it, humans never see it
 })
 export type OrderInput = z.input<typeof orderInputSchema>
 
-export type CreateOrderResult = { ok: true; code: string } | { ok: false; error: string }
+export type CreateOrderResult = { ok: true; code: string; paymentUrl: string } | { ok: false; error: string }
 
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 function newCode() {
   return Array.from({ length: 5 }, () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]).join('')
 }
 
-export async function createOrder(raw: unknown): Promise<CreateOrderResult> {
+/**
+ * Saves the order as "a_payer" and opens its SumUp payment; the customer is then sent to
+ * `paymentUrl`. `siteUrl` is the public address SumUp sends the customer and the webhook back to.
+ */
+export async function createOrder(raw: unknown, siteUrl: string): Promise<CreateOrderResult> {
   const parsed = orderInputSchema.safeParse(raw)
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? 'Formulaire invalide.' }
@@ -71,7 +75,8 @@ export async function createOrder(raw: unknown): Promise<CreateOrderResult> {
           addressLabel: `${point.name}, ${point.address}`,
           lat: point.lat,
           lon: point.lon,
-          paymentMethod: input.paymentMethod,
+          status: 'a_payer',
+          paymentMethod: 'En ligne',
           notes: input.notes,
           totalCents: priced.totalCents,
         })
@@ -84,7 +89,50 @@ export async function createOrder(raw: unknown): Promise<CreateOrderResult> {
     return order.code
   })
 
-  return { ok: true, code }
+  let checkout
+  try {
+    checkout = await createCheckout({
+      reference: code,
+      amountCents: priced.totalCents,
+      description: `Suricate · commande ${code}`,
+      redirectUrl: `${siteUrl}/commande/${code}?nouvelle=1`,
+      // SumUp can only call a public https address.
+      webhookUrl: siteUrl.startsWith('https://') ? `${siteUrl}/api/sumup/webhook` : undefined,
+    })
+  } catch (err) {
+    console.error('SumUp checkout failed', err)
+    await d.update(orders).set({ status: 'annulee' }).where(eq(orders.code, code))
+    return { ok: false, error: 'Le paiement en ligne est indisponible pour le moment. Réessayez dans un instant.' }
+  }
+  await d
+    .update(orders)
+    .set({ sumupCheckoutId: checkout.id, paymentUrl: checkout.url })
+    .where(eq(orders.code, code))
+
+  return { ok: true, code, paymentUrl: checkout.url }
+}
+
+/**
+ * Asks SumUp whether an order waiting for payment has been paid, and if so confirms it (it then
+ * shows up in Bruno's admin). Called by the order page and by SumUp's webhook.
+ */
+export async function syncPayment(order: Order): Promise<Order> {
+  if (order.status !== 'a_payer' || !order.sumupCheckoutId) return order
+  let status
+  try {
+    status = await getCheckoutStatus(order.sumupCheckoutId)
+  } catch (err) {
+    console.error('SumUp status check failed', err)
+    return order
+  }
+  if (status !== 'PAID') return order
+  const d = await db()
+  const [paid] = await d
+    .update(orders)
+    .set({ status: 'confirmee', paidAt: new Date() })
+    .where(and(eq(orders.id, order.id), eq(orders.status, 'a_payer')))
+    .returning()
+  return paid ?? order
 }
 
 /** Changes an order status; the first move to "livree" records the delivery time. */

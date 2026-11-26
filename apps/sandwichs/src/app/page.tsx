@@ -20,7 +20,7 @@ export default async function HomePage() {
             Commandez avant <strong>{cutoff}</strong>, livraison <strong>{settings.deliveryWindow}</strong>{' '}
             {DELIVERY_POINTS.length === 1 ? `au ${DELIVERY_POINTS[0].name}` : 'au point de livraison de votre choix'}.
             <br />
-            Livraison offerte · paiement à la livraison
+            Livraison offerte · paiement en ligne
           </>
         }
       />

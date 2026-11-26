@@ -1,7 +1,6 @@
 'use client'
 
 import { ArrowLeft } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   cartItemKey,
@@ -14,7 +13,6 @@ import {
   type PricingRules,
 } from '@/lib/cart'
 import { CART_EVENT, CART_KEY } from '@/lib/cart-storage'
-import { PAYMENT_METHODS, type PaymentMethod } from '@/lib/db/schema'
 import { type DeliveryPoint } from '@/lib/delivery-points'
 import { formatEuros } from '@/lib/money'
 import { addToHistory, ORDER_HISTORY_KEY, parseHistory } from '@/lib/order-history'
@@ -25,14 +23,12 @@ type Customer = {
   customerName: string
   phone: string
   deliveryPointId: string
-  paymentMethod: PaymentMethod | ''
 }
 
 const EMPTY_CUSTOMER: Customer = {
   customerName: '',
   phone: '',
   deliveryPointId: '',
-  paymentMethod: '',
 }
 
 // Returning customers (mostly office workers) find their details and cart pre-filled.
@@ -53,7 +49,6 @@ export function OrderForm({
   cutoff: string
   deliveryWindow: string
 }) {
-  const router = useRouter()
   const [serviceDate, setServiceDate] = useState(days[0].date)
   const [cart, setCart] = useState<CartItem[]>([])
   // With a single delivery point there is nothing to choose: preselect it.
@@ -99,9 +94,6 @@ export function OrderForm({
           customerName: typeof saved.customerName === 'string' ? saved.customerName.trim().split(/\s+/)[0] : '',
           phone: typeof saved.phone === 'string' ? saved.phone : '',
           deliveryPointId: pointId,
-          paymentMethod: PAYMENT_METHODS.includes(saved.paymentMethod as PaymentMethod)
-            ? (saved.paymentMethod as PaymentMethod)
-            : '',
         }
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setCustomer(restored)
@@ -168,7 +160,6 @@ export function OrderForm({
     if (!customer.customerName.trim() || !customer.phone.trim() || !customer.deliveryPointId) {
       return setError('Indiquez votre prénom, votre téléphone et le point de livraison.')
     }
-    if (!customer.paymentMethod) return setError('Choisissez un moyen de paiement.')
 
     setSubmitting(true)
     try {
@@ -177,7 +168,7 @@ export function OrderForm({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...customer, serviceDate, items: cart, notes, website }),
       })
-      const result = (await res.json()) as { ok: true; code: string } | { ok: false; error: string }
+      const result = (await res.json()) as { ok: true; code: string; paymentUrl: string } | { ok: false; error: string }
       if (!result.ok) {
         setError(result.error)
         setSubmitting(false)
@@ -188,7 +179,8 @@ export function OrderForm({
       localStorage.setItem(ORDER_HISTORY_KEY, JSON.stringify(addToHistory(history, result.code)))
       localStorage.removeItem(CART_KEY)
       window.dispatchEvent(new Event(CART_EVENT))
-      router.replace(`/commande/${result.code}?nouvelle=1`)
+      // SumUp's payment page; once paid, it leads back to /commande/<code>.
+      window.location.assign(result.paymentUrl)
     } catch {
       setError('Connexion impossible. Vérifiez votre réseau et réessayez.')
       setSubmitting(false)
@@ -281,7 +273,7 @@ export function OrderForm({
               </div>
             </dl>
           </div>
-          <p className='text-sm text-neutral-500'>Paiement à la livraison. Livraison offerte.</p>
+          <p className='text-sm text-neutral-500'>Paiement en ligne par carte à la commande. Livraison offerte.</p>
           {!priced.ok && cart.length > 0 && <p className='text-sm text-amber-700'>{priced.error}</p>}
         </section>
       )}
@@ -360,21 +352,6 @@ export function OrderForm({
             </fieldset>
           </>
 
-          <fieldset>
-            <legend className='label'>Paiement à la livraison</legend>
-            <div className='mt-2 flex flex-wrap gap-2'>
-              {PAYMENT_METHODS.map((m) => (
-                <button
-                  key={m}
-                  type='button'
-                  onClick={() => update('paymentMethod', m)}
-                  className={`chip ${customer.paymentMethod === m ? 'chip-selected' : ''}`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
-          </fieldset>
           <Field label='Un mot pour Bruno ? (facultatif)'>
             <textarea
               className='input min-h-16'
@@ -383,6 +360,10 @@ export function OrderForm({
               onChange={(e) => setNotes(e.target.value)}
             />
           </Field>
+          <p className='text-sm text-neutral-500'>
+            Vous allez payer {formatEuros(priced.totalCents)} sur la page sécurisée de SumUp (carte, Apple Pay ou
+            Google Pay).
+          </p>
           <input
             type='text'
             name='website'
@@ -438,7 +419,7 @@ export function OrderForm({
             )}
             {step === 'livraison' && (
               <button type='submit' disabled={submitting} className='btn-primary'>
-                {submitting ? 'Envoi…' : 'Commander'}
+                {submitting ? 'Envoi…' : 'Payer'}
               </button>
             )}
           </div>

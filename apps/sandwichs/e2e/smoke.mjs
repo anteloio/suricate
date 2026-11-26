@@ -212,7 +212,7 @@ try {
   })
 
   let code
-  await scene(shop, 'Étape 3 : la livraison', 'Prénom, téléphone, point de livraison, paiement', async () => {
+  await scene(shop, 'Étape 3 : la livraison', 'Prénom, téléphone, point de livraison, puis paiement en ligne', async () => {
     await shop.waitForURL(/#livraison$/)
     // The phone's back button goes back one step, and forward again.
     await shop.goBack()
@@ -232,11 +232,13 @@ try {
     await point.check()
     if (!(await point.isChecked())) throw new Error('delivery point not selected')
     step('delivery point chosen from the list')
-    await shop.getByRole('button', { name: 'Ticket Restaurant' }).click()
+    await shop.getByText('sur la page sécurisée de SumUp').waitFor()
     await shot(shop, 'client-checkout')
-    await bar.getByRole('button', { name: 'Commander' }).click()
+    // Without SUMUP_API_KEY the payment is simulated: "Payer" leads straight back to the paid order.
+    await bar.getByRole('button', { name: 'Payer' }).click()
     await shop.waitForURL(/\/commande\/[A-Z0-9]{5}\?nouvelle=1/, { timeout: 15000 })
-    await shop.getByText('Votre commande est bien enregistrée').waitFor()
+    await shop.getByText('Paiement reçu, votre commande est bien enregistrée').waitFor()
+    await shop.getByText('Payée en ligne').waitFor()
     code = shop.url().match(/commande\/([A-Z0-9]{5})/)[1]
     // Same status pill as in "Mes commandes".
     await shop.getByText('En préparation', { exact: true }).waitFor()
@@ -299,6 +301,7 @@ try {
       await card.getByText('Marie', { exact: true }).waitFor()
       await card.getByText(/Crédit Agricole Saint-Laurent-du-Var/).waitFor()
       await card.getByText('Formule : Le Poulet Mayo + Eau minérale').waitFor()
+      await card.getByText('payé en ligne').waitFor()
       await shot(admin, 'admin-commandes')
       await card.getByRole('button', { name: 'Livrée (WhatsApp au client)' }).click()
       await admin.waitForURL(/^https:\/\/wa\.me\/33612345678\?text=/, { timeout: 15000 })

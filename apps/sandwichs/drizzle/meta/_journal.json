@@ -15,6 +15,13 @@
       "when": 1794860621337,
       "tag": "0001_delivery_points",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795713276730,
+      "tag": "0002_online_payment",
+      "breakpoints": true
     }
   ]
 }

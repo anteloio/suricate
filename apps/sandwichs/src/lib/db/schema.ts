@@ -3,10 +3,13 @@ import { boolean, doublePrecision, integer, jsonb, pgTable, serial, text, timest
 export const CATEGORIES = ['sandwich', 'boisson', 'dessert'] as const
 export type Category = (typeof CATEGORIES)[number]
 
-export const PAYMENT_METHODS = ['CB', 'Espèces', 'Ticket Restaurant'] as const
+// Customers pay online (SumUp) when they order. The other methods are from when they paid on
+// delivery; older orders still hold them.
+export const PAYMENT_METHODS = ['En ligne', 'CB', 'Espèces', 'Ticket Restaurant'] as const
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number]
 
-export const ORDER_STATUSES = ['confirmee', 'livree', 'annulee'] as const
+// "a_payer": created, waiting for the online payment. Bruno only sees an order once it is paid.
+export const ORDER_STATUSES = ['a_payer', 'confirmee', 'livree', 'annulee'] as const
 export type OrderStatus = (typeof ORDER_STATUSES)[number]
 
 export const products = pgTable('products', {
@@ -64,6 +67,10 @@ export const orders = pgTable('orders', {
   lat: doublePrecision('lat').notNull(),
   lon: doublePrecision('lon').notNull(),
   paymentMethod: text('payment_method').$type<PaymentMethod>().notNull(),
+  // SumUp checkout of the online payment, and the SumUp page where the customer pays it.
+  sumupCheckoutId: text('sumup_checkout_id').unique(),
+  paymentUrl: text('payment_url'),
+  paidAt: timestamp('paid_at', { withTimezone: true }),
   notes: text('notes').notNull().default(''),
   totalCents: integer('total_cents').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

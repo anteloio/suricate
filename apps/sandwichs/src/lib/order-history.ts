@@ -1,3 +1,5 @@
+import type { OrderStatus } from './db/schema'
+
 // "Mes commandes": the customer's order codes, kept only on their device (localStorage).
 // There are no customer accounts; the server returns orders only for the codes it is given.
 
@@ -25,7 +27,7 @@ export function addToHistory(codes: string[], code: string): string[] {
 export type HistoryOrder = {
   code: string
   serviceDate: string
-  status: 'confirmee' | 'livree' | 'annulee'
+  status: OrderStatus
   totalCents: number
   paymentMethod: string
   where: string

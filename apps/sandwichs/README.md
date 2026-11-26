@@ -1,14 +1,20 @@
 # Suricate · Sandwichs
 
 Online sandwich pre-orders for Bruno, delivered at lunch to fixed delivery points.
-Customers order before the cutoff (10h by default) for the days Bruno opens; they pay on delivery.
+Customers order before the cutoff (10h by default) for the days Bruno opens and pay online (SumUp)
+when they order.
 
 - **Customer site** `/`: menu with a +/− counter on every item (Uber Eats style); the formule
   (sandwich* + drink at the formule price) is applied automatically, as many times as it saves
   money, by `priceCart` in `src/lib/cart.ts` (same greedy rule as the food truck's
   `apps/foodtruck/src/models/order.js`, recomputed by the server on every order). Then first name,
-  phone, a delivery point picked from a list, payment method chosen at order time. Confirmation
-  page `/commande/<code>`.
+  phone, a delivery point picked from a list, then payment. Confirmation page `/commande/<code>`.
+- **Online payment (SumUp Hosted Checkout)**, in `src/lib/sumup.ts`: the order is saved as
+  `a_payer`, the customer pays on SumUp's page (card, Apple Pay, Google Pay) and comes back to
+  `/commande/<code>`. That page and the webhook `/api/sumup/webhook` ask SumUp for the checkout
+  status; once `PAID` the order becomes `confirmee`. Bruno's admin never shows unpaid orders. A
+  cancelled order is not refunded automatically: Bruno refunds it in SumUp. Without
+  `SUMUP_API_KEY` (local, e2e, demo) payments are simulated and always succeed.
 - **Mes commandes** `/mes-commandes`: the codes of the orders placed on a phone are kept in its
   localStorage (`src/lib/order-history.ts`); the page asks `POST /api/commandes/historique` for
   the current state of those codes only (no accounts, no listing of other orders).
@@ -55,14 +61,16 @@ On an empty database the initial menu (`src/lib/db/seed.ts`) and default setting
 
 ## Deployment (Vercel)
 
-Live at **https://suricate.vercel.app** (Vercel team `mdless`, project
-`suricate-sandwichs`, functions in `fra1`).
+Live at **https://suricate.vercel.app** (Vercel team `mdless`, project `suricate`, functions in
+`fra1`).
 
 - Project root directory: `apps/sandwichs`. `vercel.json` skips builds when a commit doesn't
   touch this folder (e.g. Bruno's food truck menu updates).
 - Database: Neon project `suricate-sandwichs` (`aws-eu-central-1`, Frankfurt), pooled
   connection string in the `DATABASE_URL` production variable. Migrations run at build time.
-- Environment variables (production): `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`.
+- Environment variables (production): `DATABASE_URL`, `ADMIN_PASSWORD`, `SESSION_SECRET`,
+  `SUMUP_API_KEY` (key « web app » of the SURICATE merchant; 1Password: "SumUp API - Suricate"),
+  `SUMUP_MERCHANT_CODE` (`M5TTP964`).
   (`RESEND_API_KEY`, `EMAIL_FROM`, `EMAIL_REPLY_TO`, `SITE_URL` are no longer used.)
 - Deploy by hand from the repo root (already linked in `.vercel/`): `vercel deploy --prod`.
   Once the Vercel GitHub app has access to the repo, `vercel git connect` makes every push

@@ -48,7 +48,8 @@ export async function toggleDay(formData: FormData) {
 export async function changeOrderStatus(formData: FormData) {
   await requireAdmin()
   const status = String(formData.get('status')) as OrderStatus
-  if (!ORDER_STATUSES.includes(status)) return
+  // Only SumUp's payment moves an order out of "a_payer"; Bruno never sets it.
+  if (!ORDER_STATUSES.includes(status) || status === 'a_payer') return
   await setOrderStatus(Number(formData.get('orderId')), status)
   revalidatePath('/admin', 'layout')
 }

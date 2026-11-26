@@ -129,7 +129,8 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
                   </a>
                 </p>
                 <p>
-                  💶 <strong>{formatEuros(order.totalCents)}</strong> en {order.paymentMethod}
+                  💶 <strong>{formatEuros(order.totalCents)}</strong>{' '}
+                  {order.paymentMethod === 'En ligne' ? 'payé en ligne' : `en ${order.paymentMethod}`}
                 </p>
                 {order.notes && <p className='rounded-lg bg-amber-50 px-2 py-1'>💬 {order.notes}</p>}
               </div>

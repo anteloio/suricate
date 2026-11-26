@@ -1,5 +1,5 @@
 import 'server-only'
-import { and, asc, count, desc, eq, gte, inArray, ne } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, inArray, ne, notInArray } from 'drizzle-orm'
 import { db, orderLines, orders, products, serviceDays, settings, type Settings } from './db'
 import type { HistoryOrder } from './order-history'
 import { addDays, orderableDays, parisNow } from './time'
@@ -44,9 +44,14 @@ export async function getOrderByCode(code: string) {
   return { order, lines }
 }
 
+/** The day's orders for Bruno: only paid ones (an order waiting for its payment is not his yet). */
 export async function getOrdersForDay(date: string) {
   const d = await db()
-  const dayOrders = await d.select().from(orders).where(eq(orders.serviceDate, date)).orderBy(asc(orders.createdAt))
+  const dayOrders = await d
+    .select()
+    .from(orders)
+    .where(and(eq(orders.serviceDate, date), ne(orders.status, 'a_payer')))
+    .orderBy(asc(orders.createdAt))
   const lines = dayOrders.length
     ? await d
         .select()
@@ -62,13 +67,13 @@ export async function getOrdersForDay(date: string) {
   return dayOrders.map((order) => ({ order, lines: lines.filter((l) => l.orderId === order.id) }))
 }
 
-/** Number of non-cancelled orders per day, for the days screen. */
+/** Number of paid, non-cancelled orders per day, for the days screen. */
 export async function getOrderCountsFrom(date: string): Promise<Map<string, number>> {
   const d = await db()
   const rows = await d
     .select({ date: orders.serviceDate, n: count() })
     .from(orders)
-    .where(and(gte(orders.serviceDate, date), ne(orders.status, 'annulee')))
+    .where(and(gte(orders.serviceDate, date), notInArray(orders.status, ['annulee', 'a_payer'])))
     .groupBy(orders.serviceDate)
   return new Map(rows.map((r) => [r.date, Number(r.n)]))
 }
@@ -79,7 +84,7 @@ export async function getRecentOrderDays(limit = 30): Promise<string[]> {
   const rows = await d
     .selectDistinct({ date: orders.serviceDate })
     .from(orders)
-    .where(gte(orders.serviceDate, addDays(parisNow().date, -90)))
+    .where(and(gte(orders.serviceDate, addDays(parisNow().date, -90)), ne(orders.status, 'a_payer')))
     .orderBy(desc(orders.serviceDate))
     .limit(limit)
   return rows.map((r) => r.date)
