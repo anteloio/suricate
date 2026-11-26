@@ -46,3 +46,10 @@ admin, WhatsApp message), film the scene that shows it and show only that video 
    (`![Demo](/abs/path/.data/demo/09-....mp4)`) and say in a few words what it shows. Check a
    few frames yourself first (e.g.
    `ffmpeg -i video.mp4 -vf fps=1/2,scale=200:-1,tile=6x2 -frames:v 1 sheet.png`).
+
+## Online payments (SumUp)
+
+Customers pay online when they order (SumUp Hosted Checkout, `src/lib/sumup.ts`). Accounts, keys, local tests with real test payments, deploy and troubleshooting: see the runbook `docs/sumup.md`. Read it before touching payments.
+
+- Locally without `SUMUP_API_KEY`, payments are simulated and always succeed (e2e and demo videos rely on this). Never leave a sandbox key in `.env.local` when running `npm run demo` or the e2e flow: "Payer" would go to SumUp's real page.
+- Keys live in 1Password (vault Personal): "SumUp API - Suricate" (production) and "SumUp API - Suricate Sandbox" (tests). Never paste them in chat or commit them.

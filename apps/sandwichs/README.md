@@ -14,7 +14,7 @@ when they order.
   `/commande/<code>`. That page and the webhook `/api/sumup/webhook` ask SumUp for the checkout
   status; once `PAID` the order becomes `confirmee`. Bruno's admin never shows unpaid orders. A
   cancelled order is not refunded automatically: Bruno refunds it in SumUp. Without
-  `SUMUP_API_KEY` (local, e2e, demo) payments are simulated and always succeed.
+  `SUMUP_API_KEY` (local, e2e, demo) payments are simulated and always succeed. Runbook: `docs/sumup.md`.
 - **Mes commandes** `/mes-commandes`: the codes of the orders placed on a phone are kept in its
   localStorage (`src/lib/order-history.ts`); the page asks `POST /api/commandes/historique` for
   the current state of those codes only (no accounts, no listing of other orders).
