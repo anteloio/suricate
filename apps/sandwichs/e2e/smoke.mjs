@@ -175,11 +175,14 @@ try {
       await admin.locator('input[name=id][value="ca-saint-laurent-du-var"]').waitFor({ state: 'attached' })
       const siteHas = async (text) => (await (await admin.request.get(BASE)).text()).includes(text)
 
-      const add = admin.locator('form').filter({ has: admin.getByRole('button', { name: 'Ajouter' }) })
+      // Adding opens a modal.
+      await admin.getByRole('button', { name: 'Ajouter un point' }).click()
+      const add = admin.getByRole('dialog', { name: 'Nouveau point de livraison' })
       await type(add.getByLabel('Nom'), 'Mairie de Valbonne')
       await type(add.getByLabel('Adresse'), '1 place de l’Hôtel de Ville, 06560 Valbonne')
-      await add.getByRole('button', { name: 'Ajouter' }).click()
+      await add.getByRole('button', { name: 'Ajouter', exact: true }).click()
       await admin.getByText('Point ajouté', { exact: true }).waitFor()
+      await add.waitFor({ state: 'hidden' })
       // Earlier runs on the same database may have left "mairie-de-valbonne": ids get a suffix.
       const added = admin
         .locator('form')

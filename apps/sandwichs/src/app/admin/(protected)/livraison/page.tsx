@@ -1,12 +1,15 @@
 import { getDeliveryPoints } from '@/lib/queries'
-import { DeliveryPointEditor, NewDeliveryPointForm } from './delivery-point-form'
+import { DeliveryPointEditor, NewDeliveryPointButton } from './delivery-point-form'
 
 export default async function DeliveryPointsPage() {
   const points = await getDeliveryPoints({ includeInactive: true })
   return (
     <main className='space-y-8'>
       <div>
-        <h1 className='text-2xl font-semibold'>Points de livraison</h1>
+        <div className='flex flex-wrap items-center justify-between gap-3'>
+          <h1 className='text-2xl font-semibold'>Points de livraison</h1>
+          <NewDeliveryPointButton />
+        </div>
         <p className='mt-1 text-neutral-600'>
           Les clients choisissent l’un de ces points en commandant. Les modifications sont enregistrées toutes seules.
           Désactivez un point pour le retirer du site sans toucher aux commandes passées.
@@ -17,12 +20,6 @@ export default async function DeliveryPointsPage() {
           <DeliveryPointEditor key={p.id} point={p} />
         ))}
       </div>
-      <section>
-        <h2 className='section-title'>Ajouter un point</h2>
-        <div className='mt-3'>
-          <NewDeliveryPointForm />
-        </div>
-      </section>
     </main>
   )
 }

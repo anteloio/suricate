@@ -1,6 +1,7 @@
 'use client'
 
-import { useActionState, useRef, useState, useTransition } from 'react'
+import { Plus, X } from 'lucide-react'
+import { useActionState, useEffect, useRef, useState, useTransition } from 'react'
 import { toast } from 'sonner'
 import type { DeliveryPointRow } from '@/lib/db/schema'
 import { mapsUrl } from '@/lib/delivery-points'
@@ -65,31 +66,70 @@ export function DeliveryPointEditor({ point }: { point: DeliveryPointRow }) {
   )
 }
 
-/** The "add a point" form, with its button; it empties itself once the point is added. */
-export function NewDeliveryPointForm() {
+/** "Ajouter un point" button opening a modal with the form; it closes once the point is added. */
+export function NewDeliveryPointButton() {
+  const dialogRef = useRef<HTMLDialogElement>(null)
   const [state, action, pending] = useActionState(saveDeliveryPoint, undefined)
   useFormToast(state)
+  useEffect(() => {
+    if (state?.ok) dialogRef.current?.close()
+  }, [state])
+
   return (
-    <form action={action} className='card space-y-3'>
-      <label className='block'>
-        <span className='label'>Nom</span>
-        <input name='name' required placeholder='Ex : Mairie de Valbonne (parking)' className='input mt-1' />
-      </label>
-      <label className='block'>
-        <span className='label'>Adresse</span>
-        <input
-          name='address'
-          required
-          placeholder='Ex : 1 place de l’Hôtel de Ville, 06560 Valbonne'
-          className='input mt-1'
-        />
-      </label>
-      <div className='flex flex-wrap items-center gap-3'>
-        <button disabled={pending} className='btn-primary'>
-          {pending ? 'Ajout…' : 'Ajouter'}
-        </button>
-      </div>
-    </form>
+    <>
+      <button
+        type='button'
+        className='btn-primary flex shrink-0 items-center gap-1.5'
+        onClick={() => dialogRef.current?.showModal()}
+      >
+        <Plus className='size-4' aria-hidden />
+        Ajouter un point
+      </button>
+      <dialog
+        ref={dialogRef}
+        aria-labelledby='new-point-title'
+        className='m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl p-0 shadow-xl backdrop:bg-black/30'
+        // A tap on the dimmed background closes it.
+        onClick={(e) => e.target === e.currentTarget && e.currentTarget.close()}
+      >
+        <form action={action} className='space-y-4 p-5'>
+          <div className='flex items-center justify-between'>
+            <h2 id='new-point-title' className='text-lg font-semibold'>
+              Nouveau point de livraison
+            </h2>
+            <button
+              type='button'
+              aria-label='Fermer'
+              className='-m-1 rounded-lg p-1 text-neutral-500 hover:bg-neutral-100'
+              onClick={() => dialogRef.current?.close()}
+            >
+              <X className='size-5' aria-hidden />
+            </button>
+          </div>
+          <label className='block'>
+            <span className='label'>Nom</span>
+            <input name='name' required placeholder='Ex : Mairie de Valbonne (parking)' className='input mt-1' />
+          </label>
+          <label className='block'>
+            <span className='label'>Adresse</span>
+            <input
+              name='address'
+              required
+              placeholder='Ex : 1 place de l’Hôtel de Ville, 06560 Valbonne'
+              className='input mt-1'
+            />
+          </label>
+          <div className='flex justify-end gap-2'>
+            <button type='button' className='btn-secondary' onClick={() => dialogRef.current?.close()}>
+              Annuler
+            </button>
+            <button disabled={pending} className='btn-primary'>
+              {pending ? 'Ajout…' : 'Ajouter'}
+            </button>
+          </div>
+        </form>
+      </dialog>
+    </>
   )
 }
 
