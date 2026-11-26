@@ -1,7 +1,7 @@
 # Suricate · Sandwichs
 
 Online sandwich pre-orders for Bruno, delivered at lunch to fixed delivery points.
-Customers order before the cutoff (10h by default) for the days Bruno opens and pay online (SumUp)
+Customers order before the cutoff (10h by default), at most 3 days ahead, for the days Bruno opens and pay online (SumUp)
 when they order.
 
 - **Customer site** `/`: menu with a +/− counter on every item (Uber Eats style); the formule

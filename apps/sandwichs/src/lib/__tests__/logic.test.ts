@@ -150,6 +150,10 @@ describe('time (Europe/Paris)', () => {
     expect(orderableDays(open, 600, { date: '2026-11-16', minutes: 599 })).toEqual(['2026-11-16', '2026-11-18'])
     expect(orderableDays(open, 600, { date: '2026-11-16', minutes: 600 })).toEqual(['2026-11-18'])
   })
+  it('opens orders at most 3 days ahead', () => {
+    const open = ['2026-11-17', '2026-11-19', '2026-11-20']
+    expect(orderableDays(open, 600, { date: '2026-11-16', minutes: 700 })).toEqual(['2026-11-17', '2026-11-19'])
+  })
 
   it('formats', () => {
     expect(addDays('2026-12-31', 1)).toBe('2027-01-01')

@@ -29,8 +29,14 @@ export function addDays(date: string, days: number): string {
 }
 
 /** Open days customers can still order for: future days, or today before the cutoff. */
+/** Customers order at most this many days ahead (today + 3 at most). */
+export const MAX_DAYS_AHEAD = 3
+
 export function orderableDays(openDays: string[], cutoffMinutes: number, now: ParisNow = parisNow()): string[] {
-  return [...new Set(openDays)].filter((d) => d > now.date || (d === now.date && now.minutes < cutoffMinutes)).sort()
+  const last = addDays(now.date, MAX_DAYS_AHEAD)
+  return [...new Set(openDays)]
+    .filter((d) => (d > now.date || (d === now.date && now.minutes < cutoffMinutes)) && d <= last)
+    .sort()
 }
 
 export function formatCutoff(minutes: number): string {

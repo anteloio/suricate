@@ -43,7 +43,7 @@ export async function getUpcomingOpenDays(): Promise<string[]> {
 }
 
 export async function getOrderableDays(cutoffMinutes: number) {
-  return orderableDays(await getUpcomingOpenDays(), cutoffMinutes).slice(0, 7)
+  return orderableDays(await getUpcomingOpenDays(), cutoffMinutes)
 }
 
 export async function getOrderByCode(code: string) {

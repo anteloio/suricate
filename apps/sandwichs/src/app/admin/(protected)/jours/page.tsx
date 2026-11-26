@@ -1,5 +1,5 @@
 import { getOrderCountsFrom, getSettings, getUpcomingOpenDays } from '@/lib/queries'
-import { addDays, formatCutoff, formatDay, parisNow } from '@/lib/time'
+import { addDays, formatCutoff, formatDay, MAX_DAYS_AHEAD, parisNow } from '@/lib/time'
 import { toggleDay } from '../../actions'
 
 const DAYS_AHEAD = 28
@@ -18,8 +18,8 @@ export default async function DaysPage() {
     <main>
       <h1 className='text-2xl font-semibold'>Jours de livraison</h1>
       <p className='mt-1 text-neutral-600'>
-        Ouvrez les jours où vous livrez. Les clients peuvent commander jusqu&apos;à{' '}
-        {formatCutoff(settings.cutoffMinutes)} le jour même.
+        Ouvrez les jours où vous livrez. Les clients peuvent commander {MAX_DAYS_AHEAD} jours à l&apos;avance au plus,
+        et jusqu&apos;à {formatCutoff(settings.cutoffMinutes)} le jour même.
       </p>
       <ul className='card mt-4 divide-y divide-neutral-100 p-0'>
         {days.map((date) => {
