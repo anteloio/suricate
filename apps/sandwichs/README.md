@@ -5,7 +5,7 @@ Customers order before the cutoff (10h by default) for the days Bruno opens and 
 when they order.
 
 - **Customer site** `/`: menu with a +/− counter on every item (Uber Eats style); the formule
-  (sandwich* + drink at the formule price) is applied automatically, as many times as it saves
+  (any sandwich + drink at the formule price) is applied automatically, as many times as it saves
   money, by `priceCart` in `src/lib/cart.ts` (same greedy rule as the food truck's
   `apps/foodtruck/src/models/order.js`, recomputed by the server on every order). Then first name,
   phone, a delivery point picked from a list, then payment. Confirmation page `/commande/<code>`.

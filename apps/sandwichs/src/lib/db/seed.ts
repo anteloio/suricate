@@ -11,7 +11,6 @@ export const INITIAL_MENU: NewProduct[] = (
       name: "L'incontournable Jambon beurre",
       description: 'Pain baguette tradition, jambon cuit à la coupe, beurre',
       priceCents: 350,
-      formulaEligible: false,
     },
     {
       category: 'sandwich',
@@ -19,21 +18,18 @@ export const INITIAL_MENU: NewProduct[] = (
       description:
         'Pain baguette tradition, émincé de poulet rôti, tomates, salade, sauce Suricate (mayonnaise maison)',
       priceCents: 550,
-      formulaEligible: true,
     },
     {
       category: 'sandwich',
       name: 'Le Chèvre Miel',
       description: "Pain baguette tradition, jambon cru Serrano, chèvre, miel, salade, huile d'olive",
       priceCents: 550,
-      formulaEligible: true,
     },
     {
       category: 'sandwich',
       name: 'Le Tomate Mozza',
       description: 'Pain baguette tradition, tomates, mozzarella, salade, pesto',
       priceCents: 550,
-      formulaEligible: true,
     },
     { category: 'boisson', name: 'Eau minérale', description: '50 cl', priceCents: 150 },
     { category: 'boisson', name: 'Eau pétillante', description: '50 cl', priceCents: 150 },

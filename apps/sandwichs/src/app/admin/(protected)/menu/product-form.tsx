@@ -10,12 +10,8 @@ const on = (value: boolean) => (value ? 'on' : null)
 /** A menu product: saves itself (fields on blur, category and switches right away). */
 export function ProductEditor({ product }: { product: Product }) {
   const [active, setActive] = useState(product.active)
-  const [formula, setFormula] = useState(product.formulaEligible)
   const [category, setCategory] = useState<Category>(product.category)
-  const { formProps, save, onBlur } = useAutoSave(saveProduct, () => ({
-    active: on(active),
-    formulaEligible: on(formula),
-  }))
+  const { formProps, save, onBlur } = useAutoSave(saveProduct, () => ({ active: on(active) }))
   const price = (product.priceCents / 100).toFixed(2).replace('.', ',')
 
   return (
@@ -85,16 +81,6 @@ export function ProductEditor({ product }: { product: Product }) {
           <input name='position' type='number' defaultValue={product.position} onBlur={onBlur} className='input mt-1' />
         </label>
       </div>
-      {category === 'sandwich' && (
-        <Switch
-          label='Peut faire partie de la formule'
-          checked={formula}
-          onChange={(next) => {
-            setFormula(next)
-            save({ formulaEligible: on(next) })
-          }}
-        />
-      )}
     </form>
   )
 }

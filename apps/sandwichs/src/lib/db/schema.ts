@@ -18,7 +18,8 @@ export const products = pgTable('products', {
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
   priceCents: integer('price_cents').notNull(),
-  // Sandwiches marked * on Bruno's menu can be part of the formule.
+  // Unused: every sandwich can be in the formule, applied only when it lowers the price
+  // (src/lib/cart.ts). Kept so older deployments keep working while a new one rolls out.
   formulaEligible: boolean('formula_eligible').notNull().default(false),
   // Choices the customer must pick from, e.g. Oasis flavors or cookie flavors.
   variants: jsonb('variants').$type<string[]>().notNull().default([]),

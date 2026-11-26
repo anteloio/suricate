@@ -39,13 +39,12 @@ export default async function HomePage() {
         </section>
       ) : (
         <OrderForm
-          menu={menu.map(({ id, category, name, description, priceCents, formulaEligible, variants, active }) => ({
+          menu={menu.map(({ id, category, name, description, priceCents, variants, active }) => ({
             id,
             category,
             name,
             description,
             priceCents,
-            formulaEligible,
             variants,
             active,
           }))}

@@ -14,7 +14,7 @@ export type CartItem = z.infer<typeof cartItemSchema>
 
 export type MenuProduct = Pick<
   Product,
-  'id' | 'category' | 'name' | 'description' | 'priceCents' | 'formulaEligible' | 'variants' | 'active'
+  'id' | 'category' | 'name' | 'description' | 'priceCents' | 'variants' | 'active'
 >
 
 export type PricedLine = {
@@ -65,8 +65,9 @@ function checkVariant(product: MenuProduct, variant: string | null | undefined):
 type Unit = { product: MenuProduct; variant: string | null }
 
 /**
- * Prices the cart and applies the formule (one formula-eligible sandwich + one drink at
- * `formulePriceCents`) automatically, as many times as it saves money.
+ * Prices the cart and applies the formule (any sandwich + one drink at `formulePriceCents`)
+ * automatically, as many times as it saves money: a cheap sandwich (e.g. the jambon beurre) whose
+ * pair costs less than the formule simply stays at its own price.
  *
  * Same greedy rule as the food truck (apps/foodtruck/src/models/order.js, getBestPossiblePrice):
  * repeatedly take the most expensive remaining item of each part of the formule and apply it
@@ -95,9 +96,7 @@ export function priceCart(items: CartItem[], menu: MenuProduct[], rules: Pricing
 
   // Most expensive first; ties broken by menu id so the result never depends on the cart order.
   const byPriceDesc = (a: Unit, b: Unit) => b.product.priceCents - a.product.priceCents || a.product.id - b.product.id
-  const sandwiches = units
-    .filter((u) => u.product.category === 'sandwich' && u.product.formulaEligible)
-    .sort(byPriceDesc)
+  const sandwiches = units.filter((u) => u.product.category === 'sandwich').sort(byPriceDesc)
   const drinks = units.filter((u) => u.product.category === 'boisson').sort(byPriceDesc)
 
   const formules: { sandwich: Unit; drink: Unit }[] = []

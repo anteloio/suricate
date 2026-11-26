@@ -74,7 +74,6 @@ function readProduct(formData: FormData) {
       priceCents,
       description: String(formData.get('description') ?? '').trim(),
       variants,
-      formulaEligible: category === 'sandwich' && formData.get('formulaEligible') === 'on',
       active: formData.get('active') === 'on',
       position: Number(formData.get('position') ?? 0) || 0,
     },

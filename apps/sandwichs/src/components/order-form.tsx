@@ -204,10 +204,11 @@ export function OrderForm({
             Livraison <strong className='lowercase'>{days[0].label}</strong>
             {days.length > 1 ? ' (ou un autre jour)' : ''}, {deliveryWindow}
           </p>
-          {rules.formulePriceCents > 0 && sandwiches.some((p) => p.formulaEligible) && drinks.length > 0 && (
+          {rules.formulePriceCents > 0 && sandwiches.length > 0 && drinks.length > 0 && (
             <p className='rounded-xl bg-white px-4 py-3 text-center text-neutral-700 ring-2 ring-formule'>
               <strong className='text-formule-dark'>Formule {formatEuros(rules.formulePriceCents)}</strong> : un
-              sandwich* et une boisson. Ajoutez-les simplement, la remise s’applique toute seule.
+              sandwich et une boisson. Ajoutez-les simplement, la remise s’applique toute seule quand elle est
+              avantageuse.
             </p>
           )}
           <ProductSection title='Sandwichs' products={sandwiches} quantities={quantities} onChange={changeQuantity} />
@@ -502,10 +503,7 @@ function ProductSection({
           <li key={p.id} className='px-4 py-3'>
             <div className='flex items-start justify-between gap-4'>
               <div>
-                <p className='font-semibold'>
-                  {p.name}
-                  {p.formulaEligible && <span className='ml-1 text-formule-dark'>*</span>}
-                </p>
+                <p className='font-semibold'>{p.name}</p>
                 {p.description && <p className='text-sm text-neutral-500'>{p.description}</p>}
                 <p className='mt-1 font-semibold tabular-nums'>{formatEuros(p.priceCents)}</p>
               </div>

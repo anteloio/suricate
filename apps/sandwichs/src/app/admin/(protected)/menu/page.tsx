@@ -18,9 +18,9 @@ export default async function MenuPage() {
           <NewProductButton />
         </div>
         <p className='mt-1 text-neutral-600'>
-          Formule à {formatEuros(settings.formulePriceCents)} (prix modifiable dans Réglages) : un sandwich coché «
-          formule » et une boisson. Les modifications sont enregistrées toutes seules. Désactivez « en vente » pour
-          retirer un produit sans le supprimer.
+          Formule à {formatEuros(settings.formulePriceCents)} (prix modifiable dans Réglages) : un sandwich et une
+          boisson, appliquée toute seule quand elle fait baisser le prix. Les modifications sont enregistrées toutes
+          seules. Désactivez « en vente » pour retirer un produit sans le supprimer.
         </p>
       </div>
       {SECTIONS.map((s) => (

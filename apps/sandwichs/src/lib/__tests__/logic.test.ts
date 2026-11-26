@@ -14,7 +14,6 @@ const menu: MenuProduct[] = [
     name: 'Jambon beurre',
     description: '',
     priceCents: 350,
-    formulaEligible: false,
     variants: [],
     active: true,
   },
@@ -24,7 +23,6 @@ const menu: MenuProduct[] = [
     name: 'Poulet Mayo',
     description: '',
     priceCents: 550,
-    formulaEligible: true,
     variants: [],
     active: true,
   },
@@ -34,7 +32,6 @@ const menu: MenuProduct[] = [
     name: 'Eau',
     description: '',
     priceCents: 150,
-    formulaEligible: false,
     variants: [],
     active: true,
   },
@@ -44,7 +41,6 @@ const menu: MenuProduct[] = [
     name: 'Oasis',
     description: '',
     priceCents: 200,
-    formulaEligible: false,
     variants: ['Pomme', 'Cassis'],
     active: true,
   },
@@ -54,7 +50,6 @@ const menu: MenuProduct[] = [
     name: 'Cookie',
     description: '',
     priceCents: 200,
-    formulaEligible: false,
     variants: ['Chocolat'],
     active: true,
   },
@@ -64,7 +59,6 @@ const menu: MenuProduct[] = [
     name: 'Retiré',
     description: '',
     priceCents: 550,
-    formulaEligible: true,
     variants: [],
     active: false,
   },
@@ -74,7 +68,7 @@ const rules = { formulePriceCents: 650 }
 const item = (productId: number, quantity = 1, variant?: string) => ({ productId, variant, quantity })
 
 describe('priceCart', () => {
-  it('applies the formule automatically to an eligible sandwich + a drink', () => {
+  it('applies the formule automatically to a sandwich + a drink', () => {
     const r = priceCart([item(2), item(4, 1, 'Cassis')], menu, rules)
     expect(r.ok).toBe(true)
     expect(r.subtotalCents).toBe(750)
@@ -104,7 +98,7 @@ describe('priceCart', () => {
     expect(a.lines).toEqual(b.lines)
   })
 
-  it('keeps the jambon beurre out of the formule', () => {
+  it('keeps the jambon beurre out of the formule: it would cost more', () => {
     const r = priceCart([item(1, 2), item(3)], menu, rules)
     expect(r.formulaCount).toBe(0)
     expect(r.totalCents).toBe(850)
