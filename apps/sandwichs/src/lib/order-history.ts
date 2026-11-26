@@ -26,6 +26,7 @@ export function addToHistory(codes: string[], code: string): string[] {
 
 export type HistoryOrder = {
   code: string
+  number: string | null
   serviceDate: string
   status: OrderStatus
   totalCents: number

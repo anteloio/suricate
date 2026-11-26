@@ -1,12 +1,13 @@
 import 'server-only'
 import { randomInt } from 'node:crypto'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 
 z.config(z.locales.fr())
 import { cartItemSchema, priceCart } from './cart'
 import { db, orderLines, orders, type Order, type OrderStatus } from './db'
 import { findDeliveryPoint } from './delivery-points'
+import { orderNumberPrefix } from './order-number'
 import { getMenu, getOrderableDays, getSettings } from './queries'
 import { createCheckout, getCheckoutStatus } from './sumup'
 
@@ -104,10 +105,7 @@ export async function createOrder(raw: unknown, siteUrl: string): Promise<Create
     await d.update(orders).set({ status: 'annulee' }).where(eq(orders.code, code))
     return { ok: false, error: 'Le paiement en ligne est indisponible pour le moment. Réessayez dans un instant.' }
   }
-  await d
-    .update(orders)
-    .set({ sumupCheckoutId: checkout.id, paymentUrl: checkout.url })
-    .where(eq(orders.code, code))
+  await d.update(orders).set({ sumupCheckoutId: checkout.id, paymentUrl: checkout.url }).where(eq(orders.code, code))
 
   return { ok: true, code, paymentUrl: checkout.url }
 }
@@ -126,13 +124,36 @@ export async function syncPayment(order: Order): Promise<Order> {
     return order
   }
   if (status !== 'PAID') return order
+  return confirmPaidOrder(order)
+}
+
+/**
+ * Confirms a paid order and gives it the next number of its delivery day ("20261127-001").
+ * Two payments confirmed at the same instant may compute the same number: the unique index
+ * refuses the second one, which retries.
+ */
+async function confirmPaidOrder(order: Order): Promise<Order> {
   const d = await db()
-  const [paid] = await d
-    .update(orders)
-    .set({ status: 'confirmee', paidAt: new Date() })
-    .where(and(eq(orders.id, order.id), eq(orders.status, 'a_payer')))
-    .returning()
-  return paid ?? order
+  const prefix = orderNumberPrefix(order.serviceDate)
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const [paid] = await d
+        .update(orders)
+        .set({
+          status: 'confirmee',
+          paidAt: new Date(),
+          number: sql`${prefix} || '-' || lpad((
+            select count(*) + 1 from ${orders} as o
+            where o.service_date = ${order.serviceDate} and o.number is not null
+          )::text, 3, '0')`,
+        })
+        .where(and(eq(orders.id, order.id), eq(orders.status, 'a_payer')))
+        .returning()
+      return paid ?? order
+    } catch (err) {
+      if (attempt >= 5) throw err
+    }
+  }
 }
 
 /** Changes an order status; the first move to "livree" records the delivery time. */

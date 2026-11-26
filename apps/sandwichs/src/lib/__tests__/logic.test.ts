@@ -3,6 +3,7 @@ import { priceCart, productionTotals, type MenuProduct } from '../cart'
 import { DELIVERY_POINTS, findDeliveryPoint } from '../delivery-points'
 import { formatEuros, parseEuros } from '../money'
 import { addToHistory, MAX_HISTORY, parseHistory } from '../order-history'
+import { orderLabel, orderNumberPrefix } from '../order-number'
 import { deliveredText, deliveredWhatsAppLink, toE164 } from '../whatsapp'
 import { addDays, formatCountdown, formatCutoff, orderableDays, parisNow, secondsBeforeCutoff } from '../time'
 
@@ -199,11 +200,13 @@ describe('whatsapp message', () => {
   it('writes a short delivery text', () => {
     const text = deliveredText({
       code: 'AB2CD',
+      number: '20261127-004',
       customerName: 'Marie',
       deliveryPointId: 'ca-saint-laurent-du-var',
       addressLabel: '',
     })
-    expect(text).toContain('AB2CD')
+    expect(text).toContain('20261127-004')
+    expect(text).not.toContain('AB2CD')
     expect(text).toContain('Marie')
     expect(text).toContain('Crédit Agricole')
     expect(text.length).toBeLessThanOrEqual(160)
@@ -211,6 +214,7 @@ describe('whatsapp message', () => {
   it('builds a wa.me link with the number in international format', () => {
     const order = {
       code: 'AB2CD',
+      number: null,
       customerName: 'Marie',
       phone: '06 12 34 56 78',
       deliveryPointId: null,
@@ -271,5 +275,13 @@ describe('siteUrl', () => {
       if (before === undefined) delete process.env.VERCEL_PROJECT_PRODUCTION_URL
       else process.env.VERCEL_PROJECT_PRODUCTION_URL = before
     }
+  })
+})
+
+describe('order numbers', () => {
+  it('uses the delivery day and a 3-digit sequence', () => {
+    expect(orderNumberPrefix('2026-11-27')).toBe('20261127')
+    expect(orderLabel({ number: '20261127-001', code: 'AB2CD' })).toBe('20261127-001')
+    expect(orderLabel({ number: null, code: 'AB2CD' })).toBe('AB2CD')
   })
 })

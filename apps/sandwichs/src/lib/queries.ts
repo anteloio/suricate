@@ -110,6 +110,7 @@ export async function getOrdersByCodes(codes: string[]): Promise<HistoryOrder[]>
   return found
     .map((o) => ({
       code: o.code,
+      number: o.number,
       serviceDate: o.serviceDate,
       status: o.status,
       totalCents: o.totalCents,

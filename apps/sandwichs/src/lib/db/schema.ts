@@ -50,7 +50,11 @@ export const settings = pgTable('settings', {
 
 export const orders = pgTable('orders', {
   id: serial('id').primaryKey(),
+  // Random, used in URLs and "Mes commandes" (src/lib/order-history.ts).
   code: text('code').notNull().unique(),
+  // Shown to customers and Bruno: delivery day + sequence, e.g. "20261127-001"; set once paid
+  // (src/lib/order-number.ts).
+  number: text('number').unique(),
   serviceDate: text('service_date').notNull(),
   status: text('status').$type<OrderStatus>().notNull().default('confirmee'),
   // First name only since the form was simplified (older orders hold the full name).

@@ -45,12 +45,11 @@ const type = async (locator, text) => {
   await locator.pressSequentially(text, { delay: 45 })
 }
 
-const plain = (text) =>
-  text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-const WANTED = (process.env.SCENES ?? '').split(/[\s,]+/).filter(Boolean).map(plain)
+const plain = (text) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+const WANTED = (process.env.SCENES ?? '')
+  .split(/[\s,]+/)
+  .filter(Boolean)
+  .map(plain)
 
 // Runs one scene; when filming, records it as its own video with a title card.
 let sceneCount = 0
@@ -89,8 +88,17 @@ async function scene(page, title, description, fn) {
 function toMp4(base) {
   const res = spawnSync(
     'ffmpeg',
-    ['-y', '-loglevel', 'error', '-i', `${base}.webm`, '-vf', 'fps=25,scale=trunc(iw/2)*2:trunc(ih/2)*2']
-      .concat(['-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '24', '-movflags', '+faststart', `${base}.mp4`]),
+    ['-y', '-loglevel', 'error', '-i', `${base}.webm`, '-vf', 'fps=25,scale=trunc(iw/2)*2:trunc(ih/2)*2'].concat([
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-crf',
+      '24',
+      '-movflags',
+      '+faststart',
+      `${base}.mp4`,
+    ]),
     { stdio: 'inherit' }
   )
   if (res.error || res.status !== 0) return console.warn(`(ffmpeg unavailable or failed: video is ${base}.webm)`)
@@ -211,51 +219,60 @@ try {
     await bar.getByRole('button', { name: 'Continuer' }).click()
   })
 
-  let code
-  await scene(shop, 'Étape 3 : la livraison', 'Prénom, téléphone, point de livraison, puis paiement en ligne', async () => {
-    await shop.waitForURL(/#livraison$/)
-    // The phone's back button goes back one step, and forward again.
-    await shop.goBack()
-    await totalIs('15,00').waitFor()
-    await shop.goForward()
-    await shop.getByLabel('Prénom').waitFor()
-    // So does the on-screen "Retour" button in the bottom bar.
-    await bar.getByRole('button', { name: 'Retour' }).click()
-    await totalIs('15,00').waitFor()
-    await bar.getByRole('button', { name: 'Continuer' }).click()
-    await shop.getByLabel('Prénom').waitFor()
-    step('back buttons (phone and Retour) return to the cart')
+  let code, number
+  await scene(
+    shop,
+    'Étape 3 : la livraison',
+    'Prénom, téléphone, point de livraison, puis paiement en ligne',
+    async () => {
+      await shop.waitForURL(/#livraison$/)
+      // The phone's back button goes back one step, and forward again.
+      await shop.goBack()
+      await totalIs('15,00').waitFor()
+      await shop.goForward()
+      await shop.getByLabel('Prénom').waitFor()
+      // So does the on-screen "Retour" button in the bottom bar.
+      await bar.getByRole('button', { name: 'Retour' }).click()
+      await totalIs('15,00').waitFor()
+      await bar.getByRole('button', { name: 'Continuer' }).click()
+      await shop.getByLabel('Prénom').waitFor()
+      step('back buttons (phone and Retour) return to the cart')
 
-    await type(shop.getByLabel('Prénom'), 'Marie')
-    await type(shop.getByLabel('Téléphone'), '06 12 34 56 78')
-    const point = shop.getByRole('radio', { name: /Crédit Agricole Saint-Laurent-du-Var/ })
-    await point.check()
-    if (!(await point.isChecked())) throw new Error('delivery point not selected')
-    step('delivery point chosen from the list')
-    await shop.getByText('sur la page sécurisée de SumUp').waitFor()
-    await shot(shop, 'client-checkout')
-    // Without SUMUP_API_KEY the payment is simulated: "Payer" leads straight back to the paid order.
-    await bar.getByRole('button', { name: 'Payer' }).click()
-    await shop.waitForURL(/\/commande\/[A-Z0-9]{5}\?nouvelle=1/, { timeout: 15000 })
-    await shop.getByText('Paiement reçu, votre commande est bien enregistrée').waitFor()
-    await shop.getByText('Payée en ligne').waitFor()
-    code = shop.url().match(/commande\/([A-Z0-9]{5})/)[1]
-    // Same status pill as in "Mes commandes".
-    await shop.getByText('En préparation', { exact: true }).waitFor()
-    await shot(shop, 'client-confirmation')
-    step(`order ${code} placed`)
-  })
+      await type(shop.getByLabel('Prénom'), 'Marie')
+      await type(shop.getByLabel('Téléphone'), '06 12 34 56 78')
+      const point = shop.getByRole('radio', { name: /Crédit Agricole Saint-Laurent-du-Var/ })
+      await point.check()
+      if (!(await point.isChecked())) throw new Error('delivery point not selected')
+      step('delivery point chosen from the list')
+      await shop.getByText('sur la page sécurisée de SumUp').waitFor()
+      await shot(shop, 'client-checkout')
+      // Without SUMUP_API_KEY the payment is simulated: "Payer" leads straight back to the paid order.
+      await bar.getByRole('button', { name: 'Payer' }).click()
+      await shop.waitForURL(/\/commande\/[A-Z0-9]{5}\?nouvelle=1/, { timeout: 15000 })
+      await shop.getByText('Paiement reçu, votre commande est bien enregistrée').waitFor()
+      await shop.getByText('Payée en ligne').waitFor()
+      code = shop.url().match(/commande\/([A-Z0-9]{5})/)[1]
+      // Paid: the order gets its number, delivery day + sequence ("20261127-001").
+      const title = await shop.getByRole('heading', { name: /^Commande \d{8}-\d{3}$/ }).textContent()
+      number = title.replace('Commande ', '')
+      // Just paid, not being prepared yet: the green message is enough, no status pill.
+      if ((await shop.getByText('En préparation', { exact: true }).count()) !== 0)
+        throw new Error('a paid order should not say "En préparation"')
+      await shot(shop, 'client-confirmation')
+      step(`order ${number} placed (code ${code})`)
+    }
+  )
 
   await scene(shop, 'Mes commandes', 'Le téléphone du client garde ses commandes', async () => {
     await shop.getByRole('link', { name: 'Mes commandes' }).click()
     await shop.waitForURL(/\/mes-commandes$/)
-    const mine = shop.getByRole('link').filter({ hasText: code })
-    await mine.getByText('En préparation').waitFor()
+    const mine = shop.getByRole('link').filter({ hasText: number })
+    await mine.getByText('Confirmée').waitFor()
     if (filming) await shop.waitForTimeout(1200)
     // Only the codes sent are returned; anything else is refused.
     const bad = await shop.request.post(`${BASE}/api/commandes/historique`, { data: { codes: ['*'] } })
     if (bad.status() !== 400) throw new Error(`history endpoint accepted a bad code (${bad.status()})`)
-    step('order listed in "Mes commandes" as "En préparation"')
+    step('order listed in "Mes commandes" as "Confirmée"')
   })
 
   await scene(shop, 'Le client revient', 'Ses coordonnées sont déjà là : il n’a plus qu’à confirmer', async () => {
@@ -297,7 +314,7 @@ try {
     async () => {
       await admin.getByRole('link', { name: 'Demain' }).click()
       // Scope to this run's order: the database may hold orders from earlier runs.
-      const card = admin.locator('li.card').filter({ hasText: code })
+      const card = admin.locator('li.card').filter({ hasText: number })
       await card.getByText('Marie', { exact: true }).waitFor()
       await card.getByText(/Crédit Agricole Saint-Laurent-du-Var/).waitFor()
       await card.getByText('Formule : Le Poulet Mayo + Eau minérale').waitFor()
@@ -305,11 +322,11 @@ try {
       await shot(admin, 'admin-commandes')
       await card.getByRole('button', { name: 'Livrée (WhatsApp au client)' }).click()
       await admin.waitForURL(/^https:\/\/wa\.me\/33612345678\?text=/, { timeout: 15000 })
-      await admin.locator('#msg').getByText(`votre commande ${code} est arrivée`, { exact: false }).waitFor()
+      await admin.locator('#msg').getByText(`votre commande ${number} est arrivée`, { exact: false }).waitFor()
       if (filming) await admin.waitForTimeout(1500)
       step('WhatsApp opened with the message ready')
       await admin.goBack()
-      const delivered = admin.locator('li.card').filter({ hasText: code })
+      const delivered = admin.locator('li.card').filter({ hasText: number })
       await delivered.getByRole('button', { name: 'Remettre à préparer' }).waitFor()
       step('order delivered by Bruno')
     }
@@ -320,7 +337,7 @@ try {
     await shop.getByText('Livrée', { exact: true }).waitFor()
     step('customer sees "Livrée"')
     await shop.goto(`${BASE}/mes-commandes`)
-    await shop.getByRole('link').filter({ hasText: code }).getByText('Livrée').waitFor()
+    await shop.getByRole('link').filter({ hasText: number }).getByText('Livrée').waitFor()
     step('"Mes commandes" shows it delivered')
   })
 
@@ -335,39 +352,44 @@ try {
   await bruno.goto(`${BASE}/admin`)
   if (!(await bruno.locator('link[rel=manifest]').getAttribute('href'))?.includes('admin-app'))
     throw new Error('admin should link its web app manifest')
-  await scene(bruno, 'L’appli sur le téléphone de Bruno', 'Il installe l’admin, puis partage l’affiche avec le QR code', async () => {
-    // Chrome fires beforeinstallprompt when the app is installable; headless Chrome never does.
-    await bruno.evaluate(() => {
-      const event = new Event('beforeinstallprompt', { cancelable: true })
-      event.prompt = async () => {
-        window.__prompted = true
-      }
-      event.userChoice = Promise.resolve({ outcome: 'accepted' })
-      window.dispatchEvent(event)
-    })
-    const banner = bruno.getByText('Installer l’appli sur ce téléphone')
-    await banner.waitFor()
-    await shot(bruno, 'admin-install-banner')
-    await bruno.getByRole('button', { name: 'Installer', exact: true }).click()
-    await banner.waitFor({ state: 'detached' })
-    if (!(await bruno.evaluate(() => window.__prompted))) throw new Error('install prompt not shown')
-    step('install banner opens the install prompt')
+  await scene(
+    bruno,
+    'L’appli sur le téléphone de Bruno',
+    'Il installe l’admin, puis partage l’affiche avec le QR code',
+    async () => {
+      // Chrome fires beforeinstallprompt when the app is installable; headless Chrome never does.
+      await bruno.evaluate(() => {
+        const event = new Event('beforeinstallprompt', { cancelable: true })
+        event.prompt = async () => {
+          window.__prompted = true
+        }
+        event.userChoice = Promise.resolve({ outcome: 'accepted' })
+        window.dispatchEvent(event)
+      })
+      const banner = bruno.getByText('Installer l’appli sur ce téléphone')
+      await banner.waitFor()
+      await shot(bruno, 'admin-install-banner')
+      await bruno.getByRole('button', { name: 'Installer', exact: true }).click()
+      await banner.waitFor({ state: 'detached' })
+      if (!(await bruno.evaluate(() => window.__prompted))) throw new Error('install prompt not shown')
+      step('install banner opens the install prompt')
 
-    await bruno.getByRole('link', { name: 'QR code' }).click()
-    await bruno.waitForURL('**/admin/qr')
-    const poster = bruno.getByRole('img', { name: /QR code vers/ })
-    await poster.waitFor()
-    await bruno.waitForFunction((img) => img.complete && img.naturalWidth === 1080, await poster.elementHandle())
-    await shot(bruno, 'admin-qr')
-    if (filming) await bruno.waitForTimeout(1200)
-    await bruno.getByRole('button', { name: 'Partager' }).click()
-    await bruno.locator('#share-sheet').waitFor()
-    const shared = await bruno.evaluate(() => window.__shared)
-    if (shared.type !== 'image/png' || shared.size < 10000 || !shared.text.includes(new URL(BASE).host))
-      throw new Error(`unexpected share: ${JSON.stringify(shared)}`)
-    if (filming) await bruno.waitForTimeout(2500)
-    step('QR code shared from the admin')
-  })
+      await bruno.getByRole('link', { name: 'QR code' }).click()
+      await bruno.waitForURL('**/admin/qr')
+      const poster = bruno.getByRole('img', { name: /QR code vers/ })
+      await poster.waitFor()
+      await bruno.waitForFunction((img) => img.complete && img.naturalWidth === 1080, await poster.elementHandle())
+      await shot(bruno, 'admin-qr')
+      if (filming) await bruno.waitForTimeout(1200)
+      await bruno.getByRole('button', { name: 'Partager' }).click()
+      await bruno.locator('#share-sheet').waitFor()
+      const shared = await bruno.evaluate(() => window.__shared)
+      if (shared.type !== 'image/png' || shared.size < 10000 || !shared.text.includes(new URL(BASE).host))
+        throw new Error(`unexpected share: ${JSON.stringify(shared)}`)
+      if (filming) await bruno.waitForTimeout(2500)
+      step('QR code shared from the admin')
+    }
+  )
 
   // On a computer (no file sharing) the Partager button is hidden.
   const desk = await browser.newPage({ viewport: { width: 1000, height: 800 } })

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { PageTitle } from '@/components/page-title'
 import { StatusBadge } from '@/components/status-badge'
 import { formatEuros } from '@/lib/money'
+import { orderLabel } from '@/lib/order-number'
 import { syncPayment } from '@/lib/orders'
 import { getOrderByCode, getSettings } from '@/lib/queries'
 import { formatDay } from '@/lib/time'
@@ -21,7 +22,19 @@ export default async function OrderPage({ params, searchParams }: PageProps<'/co
 
   return (
     <main className='mx-auto max-w-2xl px-4 pt-6 pb-12'>
-      <PageTitle title={`Commande ${order.code}`} subtitle={<StatusBadge status={order.status} />} />
+      <PageTitle
+        title={
+          unpaid ? (
+            'Votre commande'
+          ) : (
+            // The number never breaks at its dash on a phone.
+            <>
+              Commande <span className='whitespace-nowrap'>{orderLabel(order)}</span>
+            </>
+          )
+        }
+        subtitle={order.status === 'confirmee' ? undefined : <StatusBadge status={order.status} />}
+      />
       {unpaid && (
         <div className='mt-6 space-y-3 rounded-2xl bg-amber-50 px-4 py-4 text-center text-amber-900 ring-1 ring-amber-200'>
           <p>

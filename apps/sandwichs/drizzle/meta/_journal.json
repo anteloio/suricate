@@ -22,6 +22,13 @@
       "when": 1795713276730,
       "tag": "0002_online_payment",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795714080003,
+      "tag": "0003_order_numbers",
+      "breakpoints": true
     }
   ]
 }

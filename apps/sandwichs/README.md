@@ -9,6 +9,9 @@ when they order.
   money, by `priceCart` in `src/lib/cart.ts` (same greedy rule as the food truck's
   `apps/foodtruck/src/models/order.js`, recomputed by the server on every order). Then first name,
   phone, a delivery point picked from a list, then payment. Confirmation page `/commande/<code>`.
+- **Order numbers** (`src/lib/order-number.ts`): delivery day + sequence of that day,
+  `20261127-001`, given when the order is paid (no gaps in Bruno's list). URLs and "Mes commandes"
+  keep the random 5-character `code`, so nobody can browse other people's orders.
 - **Online payment (SumUp Hosted Checkout)**, in `src/lib/sumup.ts`: the order is saved as
   `a_payer`, the customer pays on SumUp's page (card, Apple Pay, Google Pay) and comes back to
   `/commande/<code>`. That page and the webhook `/api/sumup/webhook` ask SumUp for the checkout

@@ -1,9 +1,11 @@
 // "Livrée" message: Bruno sends it himself from his phone through a WhatsApp click-to-chat
 // link (https://wa.me/<number>?text=…). No API, no account, nothing sent by the server.
 import { findDeliveryPoint } from './delivery-points'
+import { orderLabel } from './order-number'
 
 type DeliveredOrder = {
   code: string
+  number: string | null
   customerName: string
   phone: string
   deliveryPointId: string | null
@@ -29,7 +31,7 @@ export function deliveredText(order: Omit<DeliveredOrder, 'phone'>): string {
   const point = order.deliveryPointId ? findDeliveryPoint(order.deliveryPointId) : undefined
   const where = (point?.name ?? order.addressLabel).replace(/[’‘]/g, "'")
   const firstName = order.customerName.trim().split(/\s+/)[0]
-  return `Suricate : bonjour ${firstName}, votre commande ${order.code} est arrivée : ${where}. Bon appétit !`
+  return `Suricate : bonjour ${firstName}, votre commande ${orderLabel(order)} est arrivée : ${where}. Bon appétit !`
 }
 
 /** wa.me link opening WhatsApp on Bruno's phone with the message ready; null if the number is invalid. */

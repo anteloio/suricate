@@ -4,6 +4,7 @@ import { PrintButton } from '@/components/print-button'
 import { StatusBadge } from '@/components/status-badge'
 import { productionTotals } from '@/lib/cart'
 import { formatEuros } from '@/lib/money'
+import { orderLabel } from '@/lib/order-number'
 import { getOrdersForDay, getRecentOrderDays, getSettings, getUpcomingOpenDays } from '@/lib/queries'
 import { formatCutoff, formatDay, parisNow, relativeDay } from '@/lib/time'
 import { deliveredWhatsAppLink } from '@/lib/whatsapp'
@@ -93,7 +94,7 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
                     {order.company && <span className='font-normal text-neutral-500'> · {order.company}</span>}
                   </p>
                   <p className='text-sm text-neutral-500'>
-                    {order.code} · commandé à{' '}
+                    {orderLabel(order)} · commandé à{' '}
                     {order.createdAt.toLocaleTimeString('fr-FR', {
                       timeZone: 'Europe/Paris',
                       hour: '2-digit',

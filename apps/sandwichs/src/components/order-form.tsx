@@ -361,8 +361,8 @@ export function OrderForm({
             />
           </Field>
           <p className='text-sm text-neutral-500'>
-            Vous allez payer {formatEuros(priced.totalCents)} sur la page sécurisée de SumUp (carte, Apple Pay ou
-            Google Pay).
+            Vous allez payer {formatEuros(priced.totalCents)} sur la page sécurisée de SumUp (carte, Apple Pay ou Google
+            Pay).
           </p>
           <input
             type='text'

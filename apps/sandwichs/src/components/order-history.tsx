@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { formatEuros } from '@/lib/money'
+import { orderLabel } from '@/lib/order-number'
 import { ORDER_HISTORY_KEY, parseHistory, type HistoryOrder } from '@/lib/order-history'
 import { formatDay } from '@/lib/time'
 import { StatusBadge } from './status-badge'
@@ -46,7 +47,7 @@ export function OrderHistory() {
           <Link href={`/commande/${o.code}`} className='card block transition hover:ring-neutral-900'>
             <div className='flex items-center justify-between gap-2'>
               <p className='font-semibold'>
-                {formatDay(o.serviceDate)} · {o.code}
+                {formatDay(o.serviceDate)} · {orderLabel(o)}
               </p>
               <StatusBadge status={o.status} />
             </div>
