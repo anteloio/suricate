@@ -1,6 +1,6 @@
 import { getMenu, getSettings } from '@/lib/queries'
 import { formatEuros } from '@/lib/money'
-import { ProductForm } from './product-form'
+import { NewProductButton, ProductEditor } from './product-form'
 
 const SECTIONS = [
   { category: 'sandwich', title: 'Sandwichs' },
@@ -13,10 +13,14 @@ export default async function MenuPage() {
   return (
     <main className='space-y-8'>
       <div>
-        <h1 className='text-2xl font-semibold'>Menu</h1>
+        <div className='flex items-center justify-between gap-3'>
+          <h1 className='text-2xl font-semibold'>Menu</h1>
+          <NewProductButton />
+        </div>
         <p className='mt-1 text-neutral-600'>
           Formule à {formatEuros(settings.formulePriceCents)} (prix modifiable dans Réglages) : un sandwich coché «
-          formule » et une boisson. Décochez « en vente » pour retirer un produit sans le supprimer.
+          formule » et une boisson. Les modifications sont enregistrées toutes seules. Désactivez « en vente » pour
+          retirer un produit sans le supprimer.
         </p>
       </div>
       {SECTIONS.map((s) => (
@@ -26,17 +30,11 @@ export default async function MenuPage() {
             {menu
               .filter((p) => p.category === s.category)
               .map((p) => (
-                <ProductForm key={p.id} product={p} />
+                <ProductEditor key={p.id} product={p} />
               ))}
           </div>
         </section>
       ))}
-      <section>
-        <h2 className='section-title'>Ajouter un produit</h2>
-        <div className='mt-3'>
-          <ProductForm product={null} />
-        </div>
-      </section>
     </main>
   )
 }
