@@ -1,6 +1,5 @@
 // "Livrée" message: Bruno sends it himself from his phone through a WhatsApp click-to-chat
 // link (https://wa.me/<number>?text=…). No API, no account, nothing sent by the server.
-import { findDeliveryPoint } from './delivery-points'
 import { orderLabel } from './order-number'
 
 type DeliveredOrder = {
@@ -8,8 +7,9 @@ type DeliveredOrder = {
   number: string | null
   customerName: string
   phone: string
-  deliveryPointId: string | null
   addressLabel: string
+  /** Current name of the order's delivery point, when it still exists. */
+  pointName?: string
 }
 
 /**
@@ -28,8 +28,7 @@ export function toE164(raw: string): string | null {
 
 /** Short French text telling the customer their order has arrived. */
 export function deliveredText(order: Omit<DeliveredOrder, 'phone'>): string {
-  const point = order.deliveryPointId ? findDeliveryPoint(order.deliveryPointId) : undefined
-  const where = (point?.name ?? order.addressLabel).replace(/[’‘]/g, "'")
+  const where = (order.pointName ?? order.addressLabel).replace(/[’‘]/g, "'")
   const firstName = order.customerName.trim().split(/\s+/)[0]
   return `Suricate : bonjour ${firstName}, votre commande ${orderLabel(order)} est arrivée : ${where}. Bon appétit !`
 }

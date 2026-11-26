@@ -1,14 +1,19 @@
 import { OrderForm } from '@/components/order-form'
 import { PageTitle } from '@/components/page-title'
-import { DELIVERY_POINTS } from '@/lib/delivery-points'
-import { getMenu, getOrderableDays, getSettings } from '@/lib/queries'
+import { getDeliveryPoints, getMenu, getOrderableDays, getSettings } from '@/lib/queries'
 import { formatCutoff, relativeDay } from '@/lib/time'
 
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
   const settings = await getSettings()
-  const [menu, days] = await Promise.all([getMenu(), getOrderableDays(settings.cutoffMinutes)])
+  const [menu, openDays, points] = await Promise.all([
+    getMenu(),
+    getOrderableDays(settings.cutoffMinutes),
+    getDeliveryPoints(),
+  ])
+  // No delivery point: nothing can be ordered, same as no open day.
+  const days = points.length > 0 ? openDays : []
   const cutoff = formatCutoff(settings.cutoffMinutes)
 
   return (
@@ -18,7 +23,7 @@ export default async function HomePage() {
         subtitle={
           <>
             Commandez avant <strong>{cutoff}</strong>, livraison <strong>{settings.deliveryWindow}</strong>{' '}
-            {DELIVERY_POINTS.length === 1 ? `au ${DELIVERY_POINTS[0].name}` : 'au point de livraison de votre choix'}.
+            {points.length === 1 ? `au ${points[0].name}` : 'au point de livraison de votre choix'}.
             <br />
             Livraison offerte · paiement en ligne
           </>
@@ -48,7 +53,7 @@ export default async function HomePage() {
           rules={{
             formulePriceCents: settings.formulePriceCents,
           }}
-          deliveryPoints={[...DELIVERY_POINTS]}
+          deliveryPoints={points.map(({ id, name, address }) => ({ id, name, address }))}
           cutoff={cutoff}
           deliveryWindow={settings.deliveryWindow}
         />

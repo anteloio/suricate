@@ -94,7 +94,12 @@ export function InstallBanner() {
           </p>
         )}
       </div>
-      <button type='button' onClick={dismiss} aria-label='Plus tard' className='-m-1 rounded-full p-1 text-neutral-400 hover:text-white'>
+      <button
+        type='button'
+        onClick={dismiss}
+        aria-label='Plus tard'
+        className='-m-1 rounded-full p-1 text-neutral-400 hover:text-white'
+      >
         <X aria-hidden className='size-5' />
       </button>
     </aside>

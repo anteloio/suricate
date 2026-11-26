@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { priceCart, productionTotals, type MenuProduct } from '../cart'
-import { DELIVERY_POINTS, findDeliveryPoint } from '../delivery-points'
+import { cleanMapsUrl, deliveryPointSlug, mapsUrl } from '../delivery-points'
 import { formatEuros, parseEuros } from '../money'
 import { addToHistory, MAX_HISTORY, parseHistory } from '../order-history'
 import { orderLabel, orderNumberPrefix } from '../order-number'
@@ -165,16 +165,19 @@ describe('time (Europe/Paris)', () => {
 })
 
 describe('delivery points', () => {
-  it('have unique ids and valid coordinates', () => {
-    expect(new Set(DELIVERY_POINTS.map((p) => p.id)).size).toBe(DELIVERY_POINTS.length)
-    for (const p of DELIVERY_POINTS) {
-      expect(p.lat).toBeGreaterThan(43)
-      expect(p.lat).toBeLessThan(44)
-      expect(p.lon).toBeGreaterThan(6.5)
-      expect(p.lon).toBeLessThan(7.5)
-    }
-    expect(findDeliveryPoint('ca-saint-laurent-du-var')?.address).toContain('Saint-Laurent-du-Var')
-    expect(findDeliveryPoint('nope')).toBeUndefined()
+  it('get a stable id from their name', () => {
+    expect(deliveryPointSlug('Crédit Agricole Saint-Laurent-du-Var (à côté d’Intermarché)')).toBe(
+      'credit-agricole-saint-laurent-du-var-a-cote-d-intermarche'
+    )
+    expect(deliveryPointSlug('  !!  ')).toBe('point')
+  })
+  it('link to Google Maps: the pasted link, else a search of the address', () => {
+    expect(mapsUrl('1 rue X, Nice', 'https://maps.app.goo.gl/abc')).toBe('https://maps.app.goo.gl/abc')
+    expect(mapsUrl('1 rue X, Nice', '')).toBe('https://www.google.com/maps/search/?api=1&query=1%20rue%20X%2C%20Nice')
+    expect(cleanMapsUrl(' https://maps.app.goo.gl/abc ')).toBe('https://maps.app.goo.gl/abc')
+    expect(cleanMapsUrl('')).toBe('')
+    expect(cleanMapsUrl('javascript:alert(1)')).toBeNull()
+    expect(cleanMapsUrl('pas un lien')).toBeNull()
   })
 })
 
@@ -202,7 +205,7 @@ describe('whatsapp message', () => {
       code: 'AB2CD',
       number: '20261127-004',
       customerName: 'Marie',
-      deliveryPointId: 'ca-saint-laurent-du-var',
+      pointName: 'Crédit Agricole Saint-Laurent-du-Var (à côté d’Intermarché)',
       addressLabel: '',
     })
     expect(text).toContain('20261127-004')
@@ -217,7 +220,6 @@ describe('whatsapp message', () => {
       number: null,
       customerName: 'Marie',
       phone: '06 12 34 56 78',
-      deliveryPointId: null,
       addressLabel: 'Ici',
     }
     const url = deliveredWhatsAppLink(order)!

@@ -163,6 +163,47 @@ try {
     step('tomorrow opened')
   })
 
+  await scene(
+    admin,
+    'Bruno gère les points de livraison',
+    'Il ajoute un point avec son lien Google Maps, puis le retire du site',
+    async () => {
+      await admin.getByRole('button', { name: 'Ouvrir le menu' }).click()
+      await admin.getByRole('link', { name: 'Livraison' }).click()
+      await admin.waitForURL('**/admin/livraison')
+      // The point that used to be hardcoded is there, from the migration.
+      await admin.locator('input[name=id][value="ca-saint-laurent-du-var"]').waitFor({ state: 'attached' })
+      const siteHas = async (text) => (await (await admin.request.get(BASE)).text()).includes(text)
+
+      const add = admin.locator('form').filter({ has: admin.getByRole('button', { name: 'Ajouter' }) })
+      await type(add.getByLabel('Nom'), 'Mairie de Valbonne')
+      await type(add.getByLabel('Adresse'), '1 place de l’Hôtel de Ville, 06560 Valbonne')
+      await type(add.getByLabel(/Lien Google Maps/), 'https://maps.app.goo.gl/valbonne')
+      await add.getByRole('button', { name: 'Ajouter' }).click()
+      await admin.getByText('Point ajouté.').waitFor()
+      // Earlier runs on the same database may have left "mairie-de-valbonne": ids get a suffix.
+      const added = admin
+        .locator('form')
+        .filter({ has: admin.locator('input[name=id][value^="mairie-de-valbonne"]') })
+        .last()
+      await added.getByRole('link', { name: 'Voir sur la carte' }).waitFor()
+      if (
+        (await added.getByRole('link', { name: 'Voir sur la carte' }).getAttribute('href')) !==
+        'https://maps.app.goo.gl/valbonne'
+      )
+        throw new Error('the pasted Google Maps link should be used')
+      if (!(await siteHas('Mairie de Valbonne'))) throw new Error('new point should be offered on the site')
+      step('delivery point added, offered to customers')
+
+      await added.getByLabel('Actif').uncheck()
+      await added.getByRole('button', { name: 'Enregistrer' }).click()
+      await added.getByText('Enregistré.').waitFor()
+      await shot(admin, 'admin-livraison')
+      if (await siteHas('Mairie de Valbonne')) throw new Error('inactive point should be hidden from the site')
+      step('delivery point deactivated, hidden from the site')
+    }
+  )
+
   // --- Customer orders on a phone ---
   const ctx = await browser.newContext(PHONE)
   await hideDevBadge(ctx)
@@ -405,7 +446,7 @@ try {
   await desk.goto(`${BASE}/admin/qr`)
   await desk.getByRole('img', { name: /QR code vers/ }).waitFor()
   // On a computer the admin menu is a sidebar, always visible, with the current page marked.
-  await desk.locator('aside a[aria-current=page]', { hasText: 'QR code' }).waitFor()
+  await desk.locator('aside:visible a[aria-current=page]', { hasText: 'QR code' }).waitFor()
   await shot(desk, 'admin-desktop-sidebar')
   step('admin sidebar on a computer')
   if ((await desk.getByRole('button', { name: 'Partager' }).count()) !== 0)

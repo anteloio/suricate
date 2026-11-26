@@ -29,6 +29,13 @@
       "when": 1795714080003,
       "tag": "0003_order_numbers",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795714750398,
+      "tag": "0004_delivery_points_table",
+      "breakpoints": true
     }
   ]
 }

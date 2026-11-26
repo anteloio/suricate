@@ -26,6 +26,18 @@ export const products = pgTable('products', {
   position: integer('position').notNull().default(0),
 })
 
+// Where Bruno delivers; customers pick one. Edited in /admin/livraison. A point is never deleted
+// (orders keep its id), only hidden with `active`.
+export const deliveryPoints = pgTable('delivery_points', {
+  id: text('id').primaryKey(), // slug of the name, e.g. "ca-saint-laurent-du-var"
+  name: text('name').notNull(),
+  address: text('address').notNull(),
+  // Optional Google Maps link pasted by Bruno; otherwise the admin searches the address.
+  mapsUrl: text('maps_url').notNull().default(''),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+})
+
 // A row means Bruno opened that day for orders. Dates are Europe/Paris calendar days (YYYY-MM-DD).
 export const serviceDays = pgTable('service_days', {
   date: text('date').primaryKey(),
@@ -63,13 +75,14 @@ export const orders = pgTable('orders', {
   email: text('email'),
   phone: text('phone').notNull(),
   company: text('company').notNull().default(''),
-  // Id from src/lib/delivery-points.ts; null on older orders, which had a free address.
+  // Id of a delivery_points row; null on older orders, which had a free address.
   deliveryPointId: text('delivery_point_id'),
   // Snapshot of the delivery point (name + address) at order time.
   addressLabel: text('address_label').notNull(),
   addressDetails: text('address_details').notNull().default(''),
-  lat: doublePrecision('lat').notNull(),
-  lon: doublePrecision('lon').notNull(),
+  // Only on older orders: delivery points have no coordinates (the Maps link uses the address).
+  lat: doublePrecision('lat'),
+  lon: doublePrecision('lon'),
   paymentMethod: text('payment_method').$type<PaymentMethod>().notNull(),
   // SumUp checkout of the online payment, and the SumUp page where the customer pays it.
   sumupCheckoutId: text('sumup_checkout_id').unique(),
@@ -100,6 +113,7 @@ export const orderLines = pgTable('order_lines', {
 })
 
 export type Product = typeof products.$inferSelect
+export type DeliveryPointRow = typeof deliveryPoints.$inferSelect
 export type Settings = typeof settings.$inferSelect
 export type Order = typeof orders.$inferSelect
 export type OrderLine = typeof orderLines.$inferSelect

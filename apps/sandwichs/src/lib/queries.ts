@@ -1,6 +1,6 @@
 import 'server-only'
 import { and, asc, count, desc, eq, gte, inArray, ne, notInArray } from 'drizzle-orm'
-import { db, orderLines, orders, products, serviceDays, settings, type Settings } from './db'
+import { db, deliveryPoints, orderLines, orders, products, serviceDays, settings, type Settings } from './db'
 import type { HistoryOrder } from './order-history'
 import { addDays, orderableDays, parisNow } from './time'
 
@@ -19,6 +19,16 @@ export async function getMenu({ includeInactive = false } = {}) {
     .from(products)
     .where(includeInactive ? undefined : eq(products.active, true))
     .orderBy(asc(products.position), asc(products.id))
+}
+
+/** Delivery points, oldest first; the customer site only gets the active ones. */
+export async function getDeliveryPoints({ includeInactive = false } = {}) {
+  const d = await db()
+  return d
+    .select()
+    .from(deliveryPoints)
+    .where(includeInactive ? undefined : eq(deliveryPoints.active, true))
+    .orderBy(asc(deliveryPoints.createdAt), asc(deliveryPoints.id))
 }
 
 /** Open days from today on (Paris time). */

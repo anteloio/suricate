@@ -7,6 +7,7 @@ import { checkPassword, endSession, requireAdmin, startSession } from '@/lib/aut
 import {
   CATEGORIES,
   db,
+  deliveryPoints,
   ORDER_STATUSES,
   products,
   serviceDays,
@@ -14,6 +15,7 @@ import {
   type Category,
   type OrderStatus,
 } from '@/lib/db'
+import { cleanMapsUrl, deliveryPointSlug } from '@/lib/delivery-points'
 import { parseEuros } from '@/lib/money'
 import { setOrderStatus } from '@/lib/orders'
 
@@ -110,4 +112,33 @@ export async function saveSettings(_: FormState, formData: FormData): Promise<Fo
     .where(eq(settings.id, 1))
   revalidatePath('/', 'layout')
   return { ok: 'Réglages enregistrés.' }
+}
+
+export async function saveDeliveryPoint(_: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin()
+  const name = String(formData.get('name') ?? '').trim()
+  const address = String(formData.get('address') ?? '').trim()
+  if (!name) return { error: 'Le nom est obligatoire.' }
+  if (!address) return { error: 'L’adresse est obligatoire.' }
+  const mapsUrl = cleanMapsUrl(String(formData.get('mapsUrl') ?? ''))
+  if (mapsUrl === null) return { error: 'Lien Google Maps invalide (il doit commencer par https://).' }
+  const active = formData.get('active') === 'on'
+  const d = await db()
+  const id = String(formData.get('id') ?? '')
+  if (id) {
+    await d.update(deliveryPoints).set({ name, address, mapsUrl, active }).where(eq(deliveryPoints.id, id))
+  } else {
+    // The id is stored on orders and never changes, even if the name is edited later.
+    const base = deliveryPointSlug(name)
+    for (let n = 1; ; n++) {
+      const rows = await d
+        .insert(deliveryPoints)
+        .values({ id: n === 1 ? base : `${base}-${n}`, name, address, mapsUrl, active: true })
+        .onConflictDoNothing()
+        .returning()
+      if (rows.length) break
+    }
+  }
+  revalidatePath('/', 'layout')
+  return { ok: id ? 'Enregistré.' : 'Point ajouté.' }
 }

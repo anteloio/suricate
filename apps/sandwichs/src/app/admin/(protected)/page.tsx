@@ -5,7 +5,8 @@ import { StatusBadge } from '@/components/status-badge'
 import { productionTotals } from '@/lib/cart'
 import { formatEuros } from '@/lib/money'
 import { orderLabel } from '@/lib/order-number'
-import { getOrdersForDay, getRecentOrderDays, getSettings, getUpcomingOpenDays } from '@/lib/queries'
+import { mapsUrl } from '@/lib/delivery-points'
+import { getDeliveryPoints, getOrdersForDay, getRecentOrderDays, getSettings, getUpcomingOpenDays } from '@/lib/queries'
 import { formatCutoff, formatDay, parisNow, relativeDay } from '@/lib/time'
 import { deliveredWhatsAppLink } from '@/lib/whatsapp'
 import { changeOrderStatus } from '../actions'
@@ -13,11 +14,16 @@ import { changeOrderStatus } from '../actions'
 export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) {
   const { date: requested } = await searchParams
   const now = parisNow()
-  const [settings, openDays, orderDays] = await Promise.all([
+  const [settings, openDays, orderDays, points] = await Promise.all([
     getSettings(),
     getUpcomingOpenDays(),
     getRecentOrderDays(),
+    getDeliveryPoints({ includeInactive: true }),
   ])
+  const pointById = new Map(points.map((p) => [p.id, p]))
+  const pointNames = new Map(points.map((p) => [p.id, p.name]))
+  const whatsappLink = (order: Parameters<typeof deliveredWhatsAppLink>[0] & { deliveryPointId: string | null }) =>
+    deliveredWhatsAppLink({ ...order, pointName: pointNames.get(order.deliveryPointId ?? '') })
 
   const date =
     typeof requested === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(requested)
@@ -117,7 +123,7 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
                   <a
                     className='underline'
                     target='_blank'
-                    href={`https://www.google.com/maps/search/?api=1&query=${order.lat},${order.lon}`}
+                    href={mapsUrl(order.addressLabel, pointById.get(order.deliveryPointId ?? '')?.mapsUrl)}
                   >
                     {order.addressLabel}
                   </a>
@@ -144,7 +150,7 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
                       <DeliverButton
                         key={s}
                         orderId={order.id}
-                        whatsappUrl={deliveredWhatsAppLink(order)}
+                        whatsappUrl={whatsappLink(order)}
                         className='btn-secondary border-neutral-900 bg-neutral-900 text-white hover:bg-neutral-700'
                       />
                     ) : (
@@ -157,8 +163,8 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
                       </form>
                     )
                   )}
-                {order.status === 'livree' && deliveredWhatsAppLink(order) && (
-                  <a className='btn-secondary' href={deliveredWhatsAppLink(order)!}>
+                {order.status === 'livree' && whatsappLink(order) && (
+                  <a className='btn-secondary' href={whatsappLink(order)!}>
                     Renvoyer le WhatsApp
                   </a>
                 )}

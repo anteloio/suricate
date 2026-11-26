@@ -1,27 +1,38 @@
-// Where Bruno delivers. Customers pick one of these instead of typing an address.
-// To add a point: append an entry with a new, stable `id` (it is stored on each order).
-// Coordinates are used for the Google Maps link in /admin.
+// Where Bruno delivers. Customers pick one of these instead of typing an address. The points live
+// in the database (table delivery_points) and Bruno edits them in /admin/livraison.
 
 export type DeliveryPoint = {
   id: string
   name: string
   address: string
-  lat: number
-  lon: number
 }
 
-export const DELIVERY_POINTS: readonly DeliveryPoint[] = [
-  {
-    // Crédit Agricole agency "Le Marianne", next to the Intermarché (602 av. du Général de Gaulle).
-    // Address and coordinates from the agency page on agences.credit-agricole.fr (agency 5312).
-    id: 'ca-saint-laurent-du-var',
-    name: 'Crédit Agricole Saint-Laurent-du-Var (à côté d’Intermarché)',
-    address: '380 avenue du Général de Gaulle, 06700 Saint-Laurent-du-Var',
-    lat: 43.6656259,
-    lon: 7.1938446,
-  },
-]
+/** Stable id for a new point, from its name: "Mairie de Valbonne" → "mairie-de-valbonne". */
+export function deliveryPointSlug(name: string): string {
+  return (
+    name
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'point'
+  )
+}
 
-export function findDeliveryPoint(id: string): DeliveryPoint | undefined {
-  return DELIVERY_POINTS.find((p) => p.id === id)
+/** Free Google Maps link (no API, no key): the one Bruno pasted, else a search of the address. */
+export function mapsUrl(address: string, pasted?: string): string {
+  return pasted || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
+}
+
+/** Accepts only http(s) links for the pasted Maps URL; '' clears it. */
+export function cleanMapsUrl(raw: string): string | null {
+  const value = raw.trim()
+  if (!value) return ''
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null
+  } catch {
+    return null
+  }
 }

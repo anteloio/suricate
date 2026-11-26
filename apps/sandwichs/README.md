@@ -21,11 +21,10 @@ when they order.
 - **Mes commandes** `/mes-commandes`: the codes of the orders placed on a phone are kept in its
   localStorage (`src/lib/order-history.ts`); the page asks `POST /api/commandes/historique` for
   the current state of those codes only (no accounts, no listing of other orders).
-- **Delivery points** live in `src/lib/delivery-points.ts` (name, address, coordinates). Add an
-  entry there to offer a new point; keep existing ids, they are stored on orders.
+- **Delivery points** live in the `delivery_points` table and Bruno edits them in `/admin/livraison` (name, address, optional Google Maps link pasted by hand; no Google API). A point is never deleted, only made inactive: orders keep its id. The admin's Maps link is the pasted one, else a search of the address.
 - **Bruno's area** `/admin` (password): orders per day with production totals and payment
   breakdown, "Livrée" button (marks the order delivered, then opens WhatsApp on Bruno's phone
-  with a ready-to-send message to the customer, via a wa.me link; see `src/lib/whatsapp.ts`), days to open, menu editor, settings (cutoff, delivery window, formule price).
+  with a ready-to-send message to the customer, via a wa.me link; see `src/lib/whatsapp.ts`), days to open, menu editor, delivery points, settings (cutoff, delivery window, formule price).
 - **QR code**: `/qr` is the bare PNG pointing to the production site (`src/lib/site-url.ts`);
   `/qr/affiche` is a portrait poster (logo, QR, cutoff, address). The admin page `/admin/qr`
   shows the poster with a "Partager" button that opens the phone's share sheet; the button is

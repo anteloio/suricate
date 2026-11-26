@@ -6,9 +6,8 @@ import { z } from 'zod'
 z.config(z.locales.fr())
 import { cartItemSchema, priceCart } from './cart'
 import { db, orderLines, orders, type Order, type OrderStatus } from './db'
-import { findDeliveryPoint } from './delivery-points'
 import { orderNumberPrefix } from './order-number'
-import { getMenu, getOrderableDays, getSettings } from './queries'
+import { getDeliveryPoints, getMenu, getOrderableDays, getSettings } from './queries'
 import { createCheckout, getCheckoutStatus } from './sumup'
 
 export const orderInputSchema = z.object({
@@ -54,7 +53,7 @@ export async function createOrder(raw: unknown, siteUrl: string): Promise<Create
       error: 'Les commandes sont fermées pour ce jour. Rechargez la page pour voir les jours disponibles.',
     }
   }
-  const point = findDeliveryPoint(input.deliveryPointId)
+  const point = (await getDeliveryPoints()).find((p) => p.id === input.deliveryPointId)
   if (!point) {
     return { ok: false, error: 'Ce point de livraison n’existe plus. Rechargez la page et choisissez-en un autre.' }
   }
@@ -74,8 +73,6 @@ export async function createOrder(raw: unknown, siteUrl: string): Promise<Create
           phone: input.phone,
           deliveryPointId: point.id,
           addressLabel: `${point.name}, ${point.address}`,
-          lat: point.lat,
-          lon: point.lon,
           status: 'a_payer',
           paymentMethod: 'En ligne',
           notes: input.notes,

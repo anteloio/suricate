@@ -5,6 +5,7 @@ import {
   ClipboardList,
   ExternalLink,
   LogOut,
+  MapPin,
   Menu as MenuIcon,
   QrCode,
   Settings,
@@ -20,6 +21,7 @@ const NAV = [
   { href: '/admin', label: 'Commandes', icon: ClipboardList },
   { href: '/admin/jours', label: 'Jours', icon: CalendarDays },
   { href: '/admin/menu', label: 'Menu', icon: UtensilsCrossed },
+  { href: '/admin/livraison', label: 'Livraison', icon: MapPin },
   { href: '/admin/reglages', label: 'Réglages', icon: Settings },
   { href: '/admin/qr', label: 'QR code', icon: QrCode },
 ]
@@ -128,9 +130,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </aside>
       </div>
 
-      <main className='md:pl-60'>
+      {/* Same frame (width, padding) for every admin page; each page renders its own <main>. */}
+      <div className='md:pl-60'>
         <div className='mx-auto max-w-3xl px-4 py-6 pb-16 md:px-8 md:py-10'>{children}</div>
-      </main>
+      </div>
     </div>
   )
 }
