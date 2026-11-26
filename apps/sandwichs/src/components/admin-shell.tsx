@@ -15,6 +15,7 @@ import {
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { Toaster } from 'sonner'
 import { logout } from '@/app/admin/actions'
 
 const NAV = [
@@ -130,6 +131,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </aside>
       </div>
 
+      <Toaster position='bottom-center' />
       {/* Same frame (width, padding) for every admin page; each page renders its own <main>. */}
       <div className='md:pl-60'>
         <div className='mx-auto max-w-3xl px-4 py-6 pb-16 md:px-8 md:py-10'>{children}</div>

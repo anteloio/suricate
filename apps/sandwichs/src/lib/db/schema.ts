@@ -32,8 +32,6 @@ export const deliveryPoints = pgTable('delivery_points', {
   id: text('id').primaryKey(), // slug of the name, e.g. "ca-saint-laurent-du-var"
   name: text('name').notNull(),
   address: text('address').notNull(),
-  // Optional Google Maps link pasted by Bruno; otherwise the admin searches the address.
-  mapsUrl: text('maps_url').notNull().default(''),
   active: boolean('active').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

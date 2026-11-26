@@ -20,7 +20,6 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
     getRecentOrderDays(),
     getDeliveryPoints({ includeInactive: true }),
   ])
-  const pointById = new Map(points.map((p) => [p.id, p]))
   const pointNames = new Map(points.map((p) => [p.id, p.name]))
   const whatsappLink = (order: Parameters<typeof deliveredWhatsAppLink>[0] & { deliveryPointId: string | null }) =>
     deliveredWhatsAppLink({ ...order, pointName: pointNames.get(order.deliveryPointId ?? '') })
@@ -120,11 +119,7 @@ export default async function OrdersPage({ searchParams }: PageProps<'/admin'>) 
               <div className='mt-3 grid gap-1 text-sm text-neutral-700'>
                 <p>
                   📍{' '}
-                  <a
-                    className='underline'
-                    target='_blank'
-                    href={mapsUrl(order.addressLabel, pointById.get(order.deliveryPointId ?? '')?.mapsUrl)}
-                  >
+                  <a className='underline' target='_blank' href={mapsUrl(order.addressLabel)}>
                     {order.addressLabel}
                   </a>
                   {order.addressDetails && <> · {order.addressDetails}</>}

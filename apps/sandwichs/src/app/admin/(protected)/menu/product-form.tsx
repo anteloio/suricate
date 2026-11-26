@@ -1,11 +1,13 @@
 'use client'
 
 import { useActionState } from 'react'
+import { useFormToast } from '@/lib/use-form-toast'
 import type { Product } from '@/lib/db/schema'
 import { saveProduct } from '../../actions'
 
 export function ProductForm({ product }: { product: Product | null }) {
   const [state, action, pending] = useActionState(saveProduct, undefined)
+  useFormToast(state)
   const price = product ? (product.priceCents / 100).toFixed(2).replace('.', ',') : ''
   return (
     <form action={action} className={`card space-y-3 ${product && !product.active ? 'opacity-60' : ''}`}>
@@ -62,8 +64,6 @@ export function ProductForm({ product }: { product: Product | null }) {
           Formule (sandwichs)
         </label>
         <div className='ml-auto flex items-center gap-3'>
-          {state?.error && <span className='text-sm text-red-600'>{state.error}</span>}
-          {state?.ok && !pending && <span className='text-sm text-green-700'>{state.ok}</span>}
           <button disabled={pending} className='btn-primary py-2'>
             {pending ? '…' : product ? 'Enregistrer' : 'Ajouter'}
           </button>

@@ -1,5 +1,5 @@
 {
-  "id": "d383bcfe-5111-473b-806e-9220074afd47",
+  "id": "0e4ed739-d8a1-4884-902d-8dfabfe8f6a5",
   "prevId": "c3327e93-0e41-4445-87d5-26dbd46ee133",
   "version": "7",
   "dialect": "postgresql",
@@ -25,13 +25,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
-        },
-        "maps_url": {
-          "name": "maps_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "''"
         },
         "active": {
           "name": "active",

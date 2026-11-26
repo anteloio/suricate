@@ -20,19 +20,7 @@ export function deliveryPointSlug(name: string): string {
   )
 }
 
-/** Free Google Maps link (no API, no key): the one Bruno pasted, else a search of the address. */
-export function mapsUrl(address: string, pasted?: string): string {
-  return pasted || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
-}
-
-/** Accepts only http(s) links for the pasted Maps URL; '' clears it. */
-export function cleanMapsUrl(raw: string): string | null {
-  const value = raw.trim()
-  if (!value) return ''
-  try {
-    const url = new URL(value)
-    return url.protocol === 'https:' || url.protocol === 'http:' ? url.toString() : null
-  } catch {
-    return null
-  }
+/** Free Google Maps link (no API, no key) searching the address. */
+export function mapsUrl(address: string): string {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`
 }

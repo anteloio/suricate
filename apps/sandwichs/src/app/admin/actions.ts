@@ -15,7 +15,7 @@ import {
   type Category,
   type OrderStatus,
 } from '@/lib/db'
-import { cleanMapsUrl, deliveryPointSlug } from '@/lib/delivery-points'
+import { deliveryPointSlug } from '@/lib/delivery-points'
 import { parseEuros } from '@/lib/money'
 import { setOrderStatus } from '@/lib/orders'
 
@@ -90,7 +90,7 @@ export async function saveProduct(_: FormState, formData: FormData): Promise<For
   if (id) await d.update(products).set(parsed.values).where(eq(products.id, id))
   else await d.insert(products).values(parsed.values)
   revalidatePath('/', 'layout')
-  return { ok: id ? 'Enregistré.' : 'Produit ajouté.' }
+  return { ok: id ? 'Enregistré' : 'Produit ajouté' }
 }
 
 export async function saveSettings(_: FormState, formData: FormData): Promise<FormState> {
@@ -111,7 +111,7 @@ export async function saveSettings(_: FormState, formData: FormData): Promise<Fo
     .set({ cutoffMinutes: h * 60 + m, formulePriceCents, deliveryWindow })
     .where(eq(settings.id, 1))
   revalidatePath('/', 'layout')
-  return { ok: 'Réglages enregistrés.' }
+  return { ok: 'Réglages enregistrés' }
 }
 
 export async function saveDeliveryPoint(_: FormState, formData: FormData): Promise<FormState> {
@@ -120,25 +120,23 @@ export async function saveDeliveryPoint(_: FormState, formData: FormData): Promi
   const address = String(formData.get('address') ?? '').trim()
   if (!name) return { error: 'Le nom est obligatoire.' }
   if (!address) return { error: 'L’adresse est obligatoire.' }
-  const mapsUrl = cleanMapsUrl(String(formData.get('mapsUrl') ?? ''))
-  if (mapsUrl === null) return { error: 'Lien Google Maps invalide (il doit commencer par https://).' }
   const active = formData.get('active') === 'on'
   const d = await db()
   const id = String(formData.get('id') ?? '')
   if (id) {
-    await d.update(deliveryPoints).set({ name, address, mapsUrl, active }).where(eq(deliveryPoints.id, id))
+    await d.update(deliveryPoints).set({ name, address, active }).where(eq(deliveryPoints.id, id))
   } else {
     // The id is stored on orders and never changes, even if the name is edited later.
     const base = deliveryPointSlug(name)
     for (let n = 1; ; n++) {
       const rows = await d
         .insert(deliveryPoints)
-        .values({ id: n === 1 ? base : `${base}-${n}`, name, address, mapsUrl, active: true })
+        .values({ id: n === 1 ? base : `${base}-${n}`, name, address, active: true })
         .onConflictDoNothing()
         .returning()
       if (rows.length) break
     }
   }
   revalidatePath('/', 'layout')
-  return { ok: id ? 'Enregistré.' : 'Point ajouté.' }
+  return { ok: id ? 'Enregistré' : 'Point ajouté' }
 }

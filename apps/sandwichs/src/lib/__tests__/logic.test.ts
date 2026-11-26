@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { priceCart, productionTotals, type MenuProduct } from '../cart'
-import { cleanMapsUrl, deliveryPointSlug, mapsUrl } from '../delivery-points'
+import { deliveryPointSlug, mapsUrl } from '../delivery-points'
 import { formatEuros, parseEuros } from '../money'
 import { addToHistory, MAX_HISTORY, parseHistory } from '../order-history'
 import { orderLabel, orderNumberPrefix } from '../order-number'
@@ -171,13 +171,8 @@ describe('delivery points', () => {
     )
     expect(deliveryPointSlug('  !!  ')).toBe('point')
   })
-  it('link to Google Maps: the pasted link, else a search of the address', () => {
-    expect(mapsUrl('1 rue X, Nice', 'https://maps.app.goo.gl/abc')).toBe('https://maps.app.goo.gl/abc')
-    expect(mapsUrl('1 rue X, Nice', '')).toBe('https://www.google.com/maps/search/?api=1&query=1%20rue%20X%2C%20Nice')
-    expect(cleanMapsUrl(' https://maps.app.goo.gl/abc ')).toBe('https://maps.app.goo.gl/abc')
-    expect(cleanMapsUrl('')).toBe('')
-    expect(cleanMapsUrl('javascript:alert(1)')).toBeNull()
-    expect(cleanMapsUrl('pas un lien')).toBeNull()
+  it('link to a Google Maps search of the address', () => {
+    expect(mapsUrl('1 rue X, Nice')).toBe('https://www.google.com/maps/search/?api=1&query=1%20rue%20X%2C%20Nice')
   })
 })
 

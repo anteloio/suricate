@@ -166,7 +166,7 @@ try {
   await scene(
     admin,
     'Bruno gère les points de livraison',
-    'Il ajoute un point avec son lien Google Maps, puis le retire du site',
+    'Il ajoute un point, le renomme, puis le retire du site',
     async () => {
       await admin.getByRole('button', { name: 'Ouvrir le menu' }).click()
       await admin.getByRole('link', { name: 'Livraison' }).click()
@@ -178,27 +178,28 @@ try {
       const add = admin.locator('form').filter({ has: admin.getByRole('button', { name: 'Ajouter' }) })
       await type(add.getByLabel('Nom'), 'Mairie de Valbonne')
       await type(add.getByLabel('Adresse'), '1 place de l’Hôtel de Ville, 06560 Valbonne')
-      await type(add.getByLabel(/Lien Google Maps/), 'https://maps.app.goo.gl/valbonne')
       await add.getByRole('button', { name: 'Ajouter' }).click()
-      await admin.getByText('Point ajouté.').waitFor()
+      await admin.getByText('Point ajouté', { exact: true }).waitFor()
       // Earlier runs on the same database may have left "mairie-de-valbonne": ids get a suffix.
       const added = admin
         .locator('form')
         .filter({ has: admin.locator('input[name=id][value^="mairie-de-valbonne"]') })
         .last()
       await added.getByRole('link', { name: 'Voir sur la carte' }).waitFor()
-      if (
-        (await added.getByRole('link', { name: 'Voir sur la carte' }).getAttribute('href')) !==
-        'https://maps.app.goo.gl/valbonne'
-      )
-        throw new Error('the pasted Google Maps link should be used')
       if (!(await siteHas('Mairie de Valbonne'))) throw new Error('new point should be offered on the site')
       step('delivery point added, offered to customers')
 
-      await added.getByLabel('Actif').uncheck()
-      await added.getByRole('button', { name: 'Enregistrer' }).click()
-      await added.getByText('Enregistré.').waitFor()
+      // No save button: a field saves when it loses focus, the switch when tapped.
+      await type(added.getByLabel('Nom'), 'Mairie de Valbonne (parking)')
+      await added.getByLabel('Adresse').focus()
+      // Saved: a toast, no text in the form.
+      await admin.getByText('Enregistré', { exact: true }).waitFor()
+      if (!(await siteHas('Mairie de Valbonne (parking)'))) throw new Error('renamed point should be saved on blur')
+      step('point renamed, saved on blur')
+
+      await added.getByRole('switch', { name: 'Actif' }).click()
       await shot(admin, 'admin-livraison')
+      for (let i = 0; (await siteHas('Mairie de Valbonne')) && i < 20; i++) await admin.waitForTimeout(250)
       if (await siteHas('Mairie de Valbonne')) throw new Error('inactive point should be hidden from the site')
       step('delivery point deactivated, hidden from the site')
     }

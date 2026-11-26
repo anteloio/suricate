@@ -1,6 +1,7 @@
 'use client'
 
 import { useActionState } from 'react'
+import { useFormToast } from '@/lib/use-form-toast'
 import { saveSettings } from '../../actions'
 
 type Values = {
@@ -11,6 +12,7 @@ type Values = {
 
 export function SettingsForm({ values }: { values: Values }) {
   const [state, action, pending] = useActionState(saveSettings, undefined)
+  useFormToast(state)
   return (
     <form action={action} className='card mt-4 grid gap-4 sm:grid-cols-2'>
       <label>
@@ -35,8 +37,6 @@ export function SettingsForm({ values }: { values: Values }) {
         <button disabled={pending} className='btn-primary'>
           {pending ? 'Enregistrement…' : 'Enregistrer'}
         </button>
-        {state?.error && <span className='text-sm text-red-600'>{state.error}</span>}
-        {state?.ok && !pending && <span className='text-sm text-green-700'>{state.ok}</span>}
       </div>
     </form>
   )
